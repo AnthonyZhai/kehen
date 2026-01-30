@@ -1,0 +1,29 @@
+
+-- 删除旧的冲突策略并重新创建
+DROP POLICY IF EXISTS "用户可以查看自己的资料" ON profiles;
+DROP POLICY IF EXISTS "老板和教师可以查看所有资料" ON profiles;
+DROP POLICY IF EXISTS "用户可以更新自己的资料" ON profiles;
+DROP POLICY IF EXISTS "允许系统插入用户资料" ON profiles;
+
+-- 创建简洁有效的RLS策略
+CREATE POLICY "用户可以查看自己的资料"
+ON profiles FOR SELECT
+USING (auth.uid() = id);
+
+CREATE POLICY "用户可以更新自己的资料"
+ON profiles FOR UPDATE
+USING (auth.uid() = id);
+
+CREATE POLICY "允许插入新资料"
+ON profiles FOR INSERT
+WITH CHECK (true);
+
+-- 老板和教师可以查看所有用户资料（需要单独查询）
+CREATE POLICY "管理员查看所有资料"
+ON profiles FOR SELECT
+USING (
+  EXISTS (
+    SELECT 1 FROM profiles p
+    WHERE p.id = auth.uid() AND p.role IN ('boss', 'teacher')
+  )
+);

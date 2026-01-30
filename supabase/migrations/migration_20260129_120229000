@@ -1,0 +1,40 @@
+
+-- 创建试听申请表
+CREATE TABLE trial_applications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  child_name TEXT NOT NULL,
+  course_type TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'contacted', 'completed', 'cancelled')),
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE trial_applications ENABLE ROW LEVEL SECURITY;
+
+-- 允许任何人提交申请
+CREATE POLICY "允许提交试听申请"
+ON trial_applications FOR INSERT
+WITH CHECK (true);
+
+-- 老板可以查看和管理所有申请
+CREATE POLICY "老板可以查看申请"
+ON trial_applications FOR SELECT
+USING (
+  EXISTS (
+    SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'boss'
+  )
+);
+
+CREATE POLICY "老板可以更新申请"
+ON trial_applications FOR UPDATE
+USING (
+  EXISTS (
+    SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'boss'
+  )
+);
+
+-- 更新触发器
+CREATE TRIGGER update_trial_applications_updated_at BEFORE UPDATE ON trial_applications
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

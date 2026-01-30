@@ -1,0 +1,370 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* 童趣科技教育主题色彩 */
+    --background: 45 100% 98%;
+    --foreground: 240 10% 20%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 20%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 20%;
+
+    /* 活力橙色主色调 */
+    --primary: 32 95% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    /* 薄荷绿次色调 */
+    --secondary: 160 60% 70%;
+    --secondary-foreground: 160 30% 20%;
+
+    --muted: 45 30% 94%;
+    --muted-foreground: 215 20% 45%;
+
+    /* 梦幻紫强调色 */
+    --accent: 280 70% 70%;
+    --accent-foreground: 280 70% 20%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 45 30% 88%;
+    --input: 45 30% 90%;
+    --ring: 32 95% 55%;
+
+    --radius: 1rem;
+
+    --sidebar-background: 45 50% 97%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 32 95% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 160 60% 90%;
+    --sidebar-accent-foreground: 160 30% 20%;
+    --sidebar-border: 45 30% 88%;
+    --sidebar-ring: 32 95% 55%;
+
+    /* 童趣扩展颜色变量 */
+    --fun-orange: 32 95% 55%;
+    --fun-green: 160 60% 50%;
+    --fun-purple: 280 70% 65%;
+    --fun-blue: 210 90% 60%;
+    --fun-pink: 330 80% 70%;
+    --fun-yellow: 45 95% 60%;
+  }
+
+  .dark {
+    --background: 240 20% 12%;
+    --foreground: 45 30% 95%;
+
+    --card: 240 20% 16%;
+    --card-foreground: 45 30% 95%;
+
+    --popover: 240 20% 16%;
+    --popover-foreground: 45 30% 95%;
+
+    --primary: 32 95% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 160 50% 40%;
+    --secondary-foreground: 160 30% 95%;
+
+    --muted: 240 15% 22%;
+    --muted-foreground: 45 20% 70%;
+
+    --accent: 280 60% 55%;
+    --accent-foreground: 280 20% 95%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 240 15% 25%;
+    --input: 240 15% 25%;
+    --ring: 32 95% 60%;
+
+    --sidebar-background: 240 20% 14%;
+    --sidebar-foreground: 45 30% 90%;
+    --sidebar-primary: 32 95% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 160 40% 25%;
+    --sidebar-accent-foreground: 160 30% 95%;
+    --sidebar-border: 240 15% 22%;
+    --sidebar-ring: 32 95% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Nunito', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+/* 童趣动画效果 */
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes wiggle {
+
+  0%,
+  100% {
+    transform: rotate(-3deg);
+  }
+
+  50% {
+    transform: rotate(3deg);
+  }
+}
+
+@keyframes bounce-soft {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(255, 150, 50, 0.3);
+  }
+
+  50% {
+    box-shadow: 0 0 40px rgba(255, 150, 50, 0.5);
+  }
+}
+
+@keyframes sparkle {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* 童趣工具类 */
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-wiggle {
+  animation: wiggle 0.5s ease-in-out infinite;
+}
+
+.animate-bounce-soft {
+  animation: bounce-soft 2s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-sparkle {
+  animation: sparkle 1.5s ease-in-out infinite;
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 3s ease infinite;
+}
+
+/* 童趣卡片样式 */
+.fun-card {
+  position: relative;
+  border-radius: 1.5rem;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fun-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg,
+      hsl(32, 95%, 55%),
+      hsl(160, 60%, 50%),
+      hsl(280, 70%, 65%),
+      hsl(210, 90%, 60%));
+}
+
+.fun-card:hover {
+  transform: translateY(-8px) rotate(1deg);
+  box-shadow:
+    0 20px 40px rgba(255, 150, 50, 0.15),
+    0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* 彩虹渐变背景 */
+.rainbow-gradient {
+  background: linear-gradient(135deg,
+      hsl(32, 95%, 95%) 0%,
+      hsl(160, 60%, 95%) 25%,
+      hsl(280, 70%, 95%) 50%,
+      hsl(210, 90%, 95%) 75%,
+      hsl(330, 80%, 95%) 100%);
+}
+
+/* 气泡装饰 */
+.bubble-decoration {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* 网格点状背景 */
+.dotted-bg {
+  background-image: radial-gradient(circle, hsl(32, 95%, 70%) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* 隐藏滚动条 */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* 童趣按钮样式 */
+.fun-button {
+  position: relative;
+  border-radius: 9999px;
+  font-weight: 700;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.fun-button::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg,
+      transparent,
+      rgba(255, 255, 255, 0.3),
+      transparent);
+  transition: left 0.5s;
+}
+
+.fun-button:hover::after {
+  left: 100%;
+}
+
+.fun-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 10px 30px rgba(255, 150, 50, 0.4);
+}
+
+/* 数字统计动画背景 */
+.stat-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.7));
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(255, 150, 50, 0.2);
+}
+
+/* 课程卡片彩色边框 */
+.course-card-1 {
+  border-left: 4px solid hsl(32, 95%, 55%);
+}
+
+.course-card-2 {
+  border-left: 4px solid hsl(160, 60%, 50%);
+}
+
+.course-card-3 {
+  border-left: 4px solid hsl(280, 70%, 65%);
+}
+
+.course-card-4 {
+  border-left: 4px solid hsl(210, 90%, 60%);
+}
+
+/* emoji图标容器 */
+.emoji-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  background: linear-gradient(135deg, #fff8f0, #fff0e6);
+  border-radius: 0.75rem;
+}
+
+/* 星星装饰 */
+.stars-decoration::before,
+.stars-decoration::after {
+  content: '⭐';
+  position: absolute;
+  font-size: 1rem;
+  opacity: 0.8;
+}
+
+.stars-decoration::before {
+  top: -10px;
+  right: 10px;
+  animation: sparkle 2s ease-in-out infinite;
+}
+
+.stars-decoration::after {
+  bottom: -10px;
+  left: 10px;
+  animation: sparkle 2s ease-in-out infinite 0.5s;
+}

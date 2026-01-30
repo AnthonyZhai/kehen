@@ -1,0 +1,39 @@
+
+-- 修复用户注册触发器，正确处理角色类型转换
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP FUNCTION IF EXISTS handle_new_user();
+
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER AS $$
+DECLARE
+  user_role_value user_role;
+BEGIN
+  -- 安全地获取并转换角色
+  BEGIN
+    user_role_value := (NEW.raw_user_meta_data->>'role')::user_role;
+  EXCEPTION WHEN OTHERS THEN
+    -- 如果转换失败，默认为 parent
+    user_role_value := 'parent'::user_role;
+  END;
+
+  -- 插入用户资料
+  INSERT INTO profiles (id, email, full_name, role)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
+    user_role_value
+  );
+  
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  -- 记录错误但不阻止用户创建
+  RAISE WARNING 'Error creating profile for user %: %', NEW.id, SQLERRM;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 重新创建触发器
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION handle_new_user();

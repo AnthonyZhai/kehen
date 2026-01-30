@@ -1,0 +1,5 @@
+
+-- 将赵皮皮关联到家长账号 zhaozhao@qingjin.com
+UPDATE students 
+SET parent_id = 'e47fa09e-c0b9-45a8-be7b-4c22283c607d' 
+WHERE name = '赵皮皮';

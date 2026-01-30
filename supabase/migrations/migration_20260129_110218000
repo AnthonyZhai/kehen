@@ -1,0 +1,3 @@
+
+-- 将 fuhong@qingjin.com 的角色更新为老板
+UPDATE profiles SET role = 'boss' WHERE email = 'fuhong@qingjin.com';

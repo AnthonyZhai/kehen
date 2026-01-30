@@ -1,0 +1,32 @@
+
+-- 创建课堂照片存储桶
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('class_photos', 'class_photos', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- 设置存储策略：教师和老板可以上传
+CREATE POLICY "教师和老板可以上传照片"
+ON storage.objects FOR INSERT
+WITH CHECK (
+  bucket_id = 'class_photos' AND
+  EXISTS (
+    SELECT 1 FROM profiles
+    WHERE id = auth.uid() AND role IN ('teacher', 'boss')
+  )
+);
+
+-- 所有人可以查看公开照片
+CREATE POLICY "所有人可以查看课堂照片"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'class_photos');
+
+-- 教师和老板可以删除照片
+CREATE POLICY "教师和老板可以删除照片"
+ON storage.objects FOR DELETE
+USING (
+  bucket_id = 'class_photos' AND
+  EXISTS (
+    SELECT 1 FROM profiles
+    WHERE id = auth.uid() AND role IN ('teacher', 'boss')
+  )
+);

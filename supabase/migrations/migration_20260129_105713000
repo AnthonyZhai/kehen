@@ -1,0 +1,22 @@
+
+-- 删除导致递归的策略
+DROP POLICY IF EXISTS "管理员查看所有资料" ON profiles;
+
+-- 创建一个安全的函数来获取用户角色（避免递归）
+CREATE OR REPLACE FUNCTION get_user_role(user_id UUID)
+RETURNS user_role AS $$
+DECLARE
+  user_role_value user_role;
+BEGIN
+  SELECT role INTO user_role_value FROM profiles WHERE id = user_id;
+  RETURN user_role_value;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 允许所有已认证用户查看profiles（简化策略避免递归）
+DROP POLICY IF EXISTS "用户可以查看自己的资料" ON profiles;
+
+CREATE POLICY "已认证用户可以查看资料"
+ON profiles FOR SELECT
+TO authenticated
+USING (true);

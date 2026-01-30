@@ -1,0 +1,10 @@
+
+-- 添加班级和所学内容字段到学生表
+ALTER TABLE students ADD COLUMN IF NOT EXISTS class_name TEXT DEFAULT '';
+ALTER TABLE students ADD COLUMN IF NOT EXISTS subject TEXT DEFAULT '';
+
+-- 更新测试数据
+UPDATE students SET class_name = '周六班', subject = 'Python编程' WHERE name = '张小明';
+UPDATE students SET class_name = '周日班', subject = 'Scratch入门' WHERE name = '李小华';
+UPDATE students SET class_name = '周六班', subject = 'C++算法' WHERE name = '王小红';
+UPDATE students SET class_name = '周日班', subject = 'Python编程' WHERE name = '赵小强';
