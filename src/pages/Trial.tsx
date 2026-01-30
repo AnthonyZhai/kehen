@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,15 +21,11 @@ import {
   trackTermsClick,
 } from '@/lib/analytics';
 
-const courseOptions = [
-  { value: 'scratch', label: 'Scratch图形化编程', age: '6-8岁' },
-  { value: 'python', label: 'Python基础编程', age: '9-12岁' },
-  { value: 'cpp', label: 'C++算法竞赛', age: '10-15岁' },
-  { value: 'ai', label: '人工智能入门', age: '12-16岁' },
-  { value: 'hardware', label: '智能开源硬件', age: '8-14岁' },
-  { value: 'wedo', label: 'Wedo编程', age: '5-7岁' },
-  { value: 'ev3', label: 'Ev3机器人编程', age: '8-14岁' },
-];
+interface PublicCourse {
+  id: string;
+  name: string;
+  age: string;
+}
 
 export default function Trial() {
   const navigate = useNavigate();
@@ -44,6 +41,23 @@ export default function Trial() {
   const formStartTime = useRef<number | null>(null);
   const hasStarted = useRef(false);
   const completedFields = useRef<Set<string>>(new Set());
+
+  // 获取试听课程列表
+  const { data: courses = [] } = useQuery({
+    queryKey: ['public-courses-trial'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('public_courses')
+        .select('id, name, age')
+        .order('sort_order', { ascending: true });
+      
+      if (error) {
+        console.error('Error fetching courses:', error);
+        return [];
+      }
+      return data as PublicCourse[];
+    },
+  });
 
   // 页面加载埋点
   useEffect(() => {
@@ -98,7 +112,7 @@ export default function Trial() {
 
     setSubmitting(true);
     try {
-      const courseName = courseOptions.find(c => c.value === form.courseType)?.label || form.courseType;
+      const courseName = courses.find(c => c.id === form.courseType)?.name || form.courseType;
       
       const { error } = await supabase.from('trial_applications').insert({
         child_name: form.childName,
@@ -227,9 +241,9 @@ export default function Trial() {
                       <SelectValue placeholder="请选择想要试听的课程" />
                     </SelectTrigger>
                     <SelectContent>
-                      {courseOptions.map((course) => (
-                        <SelectItem key={course.value} value={course.value}>
-                          <span>{course.label}</span>
+                      {courses.map((course) => (
+                        <SelectItem key={course.id} value={course.id}>
+                          <span>{course.name}</span>
                           <span className="text-muted-foreground ml-2">({course.age})</span>
                         </SelectItem>
                       ))}
