@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Share2, Clock, User, BookOpen, GraduationCap, Star, Trophy } from 'lucide-react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -242,6 +242,7 @@ export default function ParentDashboard() {
       <Dialog open={photoDialogOpen} onOpenChange={setPhotoDialogOpen}>
         <DialogContent className="max-w-3xl p-0 overflow-hidden">
           <DialogTitle className="sr-only">签到照片预览</DialogTitle>
+          <DialogDescription className="sr-only">签到照片详情</DialogDescription>
           {selectedPhotoUrl && (
             <img
               src={selectedPhotoUrl}
