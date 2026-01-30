@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Pencil, Trash2, Upload, Rocket, Trophy, Smile, Code, Brain, Settings, Layout, Monitor, BookOpen } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -418,7 +418,10 @@ export default function WebsiteContentManager() {
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
-                  <DialogHeader><DialogTitle>添加课程</DialogTitle></DialogHeader>
+                  <DialogHeader>
+                    <DialogTitle>添加课程</DialogTitle>
+                    <DialogDescription className="sr-only">添加新的课程到官网展示</DialogDescription>
+                  </DialogHeader>
                   <div className="space-y-4">
                     <div className="space-y-2"><Label>课程名称</Label><Input value={courseForm.name} onChange={e => setCourseForm({...courseForm, name: e.target.value})} /></div>
                     <div className="space-y-2"><Label>适合年龄</Label><Input value={courseForm.age} onChange={e => setCourseForm({...courseForm, age: e.target.value})} /></div>
@@ -478,7 +481,10 @@ export default function WebsiteContentManager() {
             
             <Dialog open={isEditCourseOpen} onOpenChange={setEditCourseOpen}>
               <DialogContent>
-                <DialogHeader><DialogTitle>编辑课程</DialogTitle></DialogHeader>
+                <DialogHeader>
+                  <DialogTitle>编辑课程</DialogTitle>
+                  <DialogDescription className="sr-only">修改课程信息</DialogDescription>
+                </DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2"><Label>课程名称</Label><Input value={courseForm.name} onChange={e => setCourseForm({...courseForm, name: e.target.value})} /></div>
                   <div className="space-y-2"><Label>适合年龄</Label><Input value={courseForm.age} onChange={e => setCourseForm({...courseForm, age: e.target.value})} /></div>
@@ -528,7 +534,10 @@ export default function WebsiteContentManager() {
                   <Button onClick={() => setAwardForm({})}><Plus className="w-4 h-4 mr-2" />添加荣誉</Button>
                 </DialogTrigger>
                 <DialogContent>
-                  <DialogHeader><DialogTitle>添加荣誉</DialogTitle></DialogHeader>
+                  <DialogHeader>
+                    <DialogTitle>添加荣誉</DialogTitle>
+                    <DialogDescription className="sr-only">记录学生获奖信息</DialogDescription>
+                  </DialogHeader>
                   <div className="space-y-4">
                     <div className="space-y-2"><Label>学生姓名</Label><Input value={awardForm.student_name} onChange={e => setAwardForm({...awardForm, student_name: e.target.value})} /></div>
                     <div className="space-y-2"><Label>学校</Label><Input value={awardForm.school} onChange={e => setAwardForm({...awardForm, school: e.target.value})} /></div>
@@ -559,7 +568,10 @@ export default function WebsiteContentManager() {
 
             <Dialog open={isEditAwardOpen} onOpenChange={setEditAwardOpen}>
               <DialogContent>
-                <DialogHeader><DialogTitle>编辑荣誉</DialogTitle></DialogHeader>
+                <DialogHeader>
+                  <DialogTitle>编辑荣誉</DialogTitle>
+                  <DialogDescription className="sr-only">修改获奖信息</DialogDescription>
+                </DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2"><Label>学生姓名</Label><Input value={awardForm.student_name} onChange={e => setAwardForm({...awardForm, student_name: e.target.value})} /></div>
                   <div className="space-y-2"><Label>学校</Label><Input value={awardForm.school} onChange={e => setAwardForm({...awardForm, school: e.target.value})} /></div>
@@ -579,7 +591,10 @@ export default function WebsiteContentManager() {
                   <Button onClick={() => setTeacherForm({})}><Plus className="w-4 h-4 mr-2" />添加导师</Button>
                 </DialogTrigger>
                 <DialogContent>
-                  <DialogHeader><DialogTitle>添加导师</DialogTitle></DialogHeader>
+                  <DialogHeader>
+                    <DialogTitle>添加导师</DialogTitle>
+                    <DialogDescription className="sr-only">添加明星导师信息</DialogDescription>
+                  </DialogHeader>
                   <div className="space-y-4">
                     <div className="flex flex-col items-center gap-3">
                       <Avatar className="h-24 w-24">
@@ -619,7 +634,10 @@ export default function WebsiteContentManager() {
 
             <Dialog open={isEditTeacherOpen} onOpenChange={setEditTeacherOpen}>
               <DialogContent>
-                <DialogHeader><DialogTitle>编辑导师</DialogTitle></DialogHeader>
+                <DialogHeader>
+                  <DialogTitle>编辑导师</DialogTitle>
+                  <DialogDescription className="sr-only">修改导师信息</DialogDescription>
+                </DialogHeader>
                 <div className="space-y-4">
                   <div className="flex flex-col items-center gap-3">
                     <Avatar className="h-24 w-24">

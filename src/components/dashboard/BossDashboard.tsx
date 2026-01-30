@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { RefreshCw, Download, AlertTriangle, ChevronLeft, ChevronRight, Search, Users, Clock, Plus, GraduationCap, UserPlus, Pencil, Upload, User, FileText, Layout } from 'lucide-react';
 import WebsiteContentManager from './WebsiteContentManager';
@@ -590,7 +590,10 @@ export default function BossDashboard() {
                   <Dialog open={addStudentOpen} onOpenChange={setAddStudentOpen}>
                     <DialogTrigger asChild><Button size="sm"><Plus className="w-4 h-4 mr-2" />录入学生</Button></DialogTrigger>
                     <DialogContent className="max-w-md">
-                      <DialogHeader><DialogTitle>录入新学生</DialogTitle></DialogHeader>
+                      <DialogHeader>
+                        <DialogTitle>录入新学生</DialogTitle>
+                        <DialogDescription className="sr-only">填写学生基本信息以录入系统</DialogDescription>
+                      </DialogHeader>
                       <div className="space-y-4 mt-4">
                         <div className="space-y-2"><Label>学生姓名 *</Label><Input placeholder="请输入学生姓名" value={newStudent.studentName} onChange={(e) => setNewStudent({ ...newStudent, studentName: e.target.value })} /></div>
                         <div className="grid grid-cols-2 gap-4">
@@ -670,7 +673,10 @@ export default function BossDashboard() {
             {/* 编辑学生对话框 */}
             <Dialog open={editStudentOpen} onOpenChange={setEditStudentOpen}>
               <DialogContent className="max-w-md">
-                <DialogHeader><DialogTitle>编辑学生信息</DialogTitle></DialogHeader>
+                <DialogHeader>
+                  <DialogTitle>编辑学生信息</DialogTitle>
+                  <DialogDescription className="sr-only">修改学生基本信息及课时设置</DialogDescription>
+                </DialogHeader>
                 <div className="space-y-4 mt-4">
                   {/* 学生照片 */}
                   <div className="flex flex-col items-center gap-3">
@@ -772,8 +778,11 @@ export default function BossDashboard() {
                   <Dialog open={addTeacherOpen} onOpenChange={setAddTeacherOpen}>
                     <DialogTrigger asChild><Button size="sm"><Plus className="w-4 h-4 mr-2" />添加教师</Button></DialogTrigger>
                     <DialogContent className="max-w-md">
-                      <DialogHeader><DialogTitle>添加教师账号</DialogTitle></DialogHeader>
-                      <div className="space-y-4 mt-4">
+                  <DialogHeader>
+                    <DialogTitle>添加教师账号</DialogTitle>
+                    <DialogDescription className="sr-only">创建新的教师账号</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 mt-4">
                         <div className="space-y-2"><Label>教师姓名 *</Label><Input placeholder="请输入教师姓名" value={newTeacher.fullName} onChange={(e) => setNewTeacher({ ...newTeacher, fullName: e.target.value })} /></div>
                         <div className="space-y-2"><Label>邮箱（登录账号） *</Label><Input type="email" placeholder="请输入邮箱" value={newTeacher.email} onChange={(e) => setNewTeacher({ ...newTeacher, email: e.target.value })} /></div>
                         <div className="space-y-2"><Label>初始密码 *</Label><Input type="text" placeholder="至少6位" value={newTeacher.password} onChange={(e) => setNewTeacher({ ...newTeacher, password: e.target.value })} /></div>
@@ -809,7 +818,10 @@ export default function BossDashboard() {
             {/* 编辑教师对话框 */}
             <Dialog open={editTeacherOpen} onOpenChange={setEditTeacherOpen}>
               <DialogContent className="max-w-md">
-                <DialogHeader><DialogTitle>编辑教师信息</DialogTitle></DialogHeader>
+                <DialogHeader>
+                  <DialogTitle>编辑教师信息</DialogTitle>
+                  <DialogDescription className="sr-only">修改教师基本信息</DialogDescription>
+                </DialogHeader>
                 <div className="space-y-4 mt-4">
                   <div className="space-y-2"><Label>教师姓名 *</Label><Input value={editTeacherForm.fullName} onChange={(e) => setEditTeacherForm({ ...editTeacherForm, fullName: e.target.value })} /></div>
                   <div className="space-y-2"><Label>邮箱（不可修改）</Label><Input value={editTeacher?.email || ''} disabled className="bg-muted" /></div>
@@ -828,7 +840,10 @@ export default function BossDashboard() {
                   <Dialog open={addClassOpen} onOpenChange={setAddClassOpen}>
                     <DialogTrigger asChild><Button size="sm"><Plus className="w-4 h-4 mr-2" />添加班级</Button></DialogTrigger>
                     <DialogContent className="max-w-md">
-                      <DialogHeader><DialogTitle>添加班级</DialogTitle></DialogHeader>
+                      <DialogHeader>
+                        <DialogTitle>添加班级</DialogTitle>
+                        <DialogDescription className="sr-only">创建新的班级并设置课时</DialogDescription>
+                      </DialogHeader>
                       <div className="space-y-4 mt-4">
                         <div className="space-y-2"><Label>班级名称 *</Label><Input placeholder="如：周六上午班" value={newClass.name} onChange={(e) => setNewClass({ ...newClass, name: e.target.value })} /></div>
                         <div className="space-y-2"><Label>班级描述</Label><Input placeholder="简要描述" value={newClass.description} onChange={(e) => setNewClass({ ...newClass, description: e.target.value })} /></div>
@@ -879,7 +894,10 @@ export default function BossDashboard() {
             {/* 编辑班级对话框 */}
             <Dialog open={editClassOpen} onOpenChange={setEditClassOpen}>
               <DialogContent className="max-w-md">
-                <DialogHeader><DialogTitle>编辑班级信息</DialogTitle></DialogHeader>
+                <DialogHeader>
+                  <DialogTitle>编辑班级信息</DialogTitle>
+                  <DialogDescription className="sr-only">修改班级基本信息及配置</DialogDescription>
+                </DialogHeader>
                 <div className="space-y-4 mt-4">
                   <div className="space-y-2"><Label>班级名称 *</Label><Input value={editClassForm.name} onChange={(e) => setEditClassForm({ ...editClassForm, name: e.target.value })} /></div>
                   <div className="space-y-2"><Label>班级描述</Label><Input value={editClassForm.description} onChange={(e) => setEditClassForm({ ...editClassForm, description: e.target.value })} /></div>
