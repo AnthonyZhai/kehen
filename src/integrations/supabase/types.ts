@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.1"
-  }
   public: {
     Tables: {
       alert_logs: {
@@ -174,6 +169,129 @@ export type Database = {
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      public_awards: {
+        Row: {
+          award_name: string
+          created_at: string
+          id: string
+          match_name: string
+          school: string
+          sort_order: number | null
+          student_name: string
+        }
+        Insert: {
+          award_name: string
+          created_at?: string
+          id?: string
+          match_name: string
+          school: string
+          sort_order?: number | null
+          student_name: string
+        }
+        Update: {
+          award_name?: string
+          created_at?: string
+          id?: string
+          match_name?: string
+          school?: string
+          sort_order?: number | null
+          student_name?: string
+        }
+        Relationships: []
+      }
+      public_courses: {
+        Row: {
+          age: string
+          border_class: string
+          btn_class: string
+          color_class: string
+          created_at: string
+          description: string
+          icon_name: string
+          id: string
+          name: string
+          shadow_class: string
+          sort_order: number | null
+        }
+        Insert: {
+          age: string
+          border_class: string
+          btn_class: string
+          color_class: string
+          created_at?: string
+          description: string
+          icon_name: string
+          id?: string
+          name: string
+          shadow_class: string
+          sort_order?: number | null
+        }
+        Update: {
+          age?: string
+          border_class?: string
+          btn_class?: string
+          color_class?: string
+          created_at?: string
+          description?: string
+          icon_name?: string
+          id?: string
+          name?: string
+          shadow_class?: string
+          sort_order?: number | null
+        }
+        Relationships: []
+      }
+      public_site_settings: {
+        Row: {
+          created_at: string
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          key: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          created_at?: string
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
+      public_teachers: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          image_url: string
+          name: string
+          sort_order: number | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          image_url: string
+          name: string
+          sort_order?: number | null
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          image_url?: string
+          name?: string
+          sort_order?: number | null
+          title?: string
         }
         Relationships: []
       }
