@@ -1,12 +1,13 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Camera, Check, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { format, getDay, getHours, getMinutes } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { trackTeacherCheckinClick } from '@/lib/analytics';
@@ -16,6 +17,13 @@ interface Student {
   name: string;
   class_name: string;
   remaining_hours: number;
+}
+
+interface ClassInfo {
+  id: string;
+  name: string;
+  schedule: string;
+  default_hours: number;
 }
 
 type ViewState = 'checkin' | 'result';
@@ -30,9 +38,23 @@ export default function TeacherDashboard() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [checkedStudents, setCheckedStudents] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
+  const [selectedClassId, setSelectedClassId] = useState<string>('all');
+
+  // 获取班级列表
+  const { data: classes = [] } = useQuery({
+    queryKey: ['teacher-classes'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('classes')
+        .select('id, name, schedule, default_hours')
+        .order('name');
+      if (error) throw error;
+      return data as ClassInfo[];
+    },
+  });
 
   // 获取学生列表
-  const { data: students = [] } = useQuery({
+  const { data: allStudents = [] } = useQuery({
     queryKey: ['students'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -44,6 +66,37 @@ export default function TeacherDashboard() {
       return data as Student[];
     },
   });
+
+  // 根据选择的班级过滤学生
+  const students = useMemo(() => {
+    if (selectedClassId === 'all') return allStudents;
+    const selectedClass = classes.find(c => c.id === selectedClassId);
+    if (!selectedClass) return allStudents;
+    return allStudents.filter(s => s.class_name === selectedClass.name);
+  }, [allStudents, classes, selectedClassId]);
+
+  // 自动选择当前时间的班级
+  useEffect(() => {
+    if (classes.length === 0) return;
+    
+    const now = new Date();
+    const currentDay = getDay(now); // 0 = Sunday, 1 = Monday
+    const currentHour = getHours(now);
+    
+    // 简单的中文星期映射
+    const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    const todayStr = weekDays[currentDay];
+    
+    // 查找包含今天且时间接近的班级
+    const matchedClass = classes.find(c => {
+      if (!c.schedule) return false;
+      return c.schedule.includes(todayStr);
+    });
+
+    if (matchedClass) {
+      setSelectedClassId(matchedClass.id);
+    }
+  }, [classes]);
 
   // 上传照片
   const uploadPhoto = async (file: File): Promise<string> => {
@@ -106,13 +159,16 @@ export default function TeacherDashboard() {
       setSubmitting(true);
       const uploadedUrl = await uploadPhoto(photoFile);
       const classDate = new Date().toISOString();
+      
+      const selectedClass = classes.find(c => c.id === selectedClassId);
+      const hoursToDeduct = selectedClass?.default_hours || 1.0;
 
       // 为每个签到的学生创建记录
       const records = Array.from(checkedStudents).map(studentId => ({
         student_id: studentId,
         teacher_id: profile!.id,
         class_date: classDate,
-        hours_consumed: 1.0,
+        hours_consumed: hoursToDeduct,
         photo_url: uploadedUrl,
       }));
 
@@ -149,6 +205,22 @@ export default function TeacherDashboard() {
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold mb-2">课堂签到</h1>
           <p className="text-muted-foreground">点击下方按钮拍摄课堂照片</p>
+        </div>
+
+        <div className="w-full max-w-xs mb-8">
+          <Select value={selectedClassId} onValueChange={setSelectedClassId}>
+            <SelectTrigger>
+              <SelectValue placeholder="选择当前上课班级" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">所有学生</SelectItem>
+              {classes.map(c => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name} ({c.schedule || '无时间'}) - {c.default_hours || 1}课时
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <button

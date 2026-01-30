@@ -53,6 +53,7 @@ interface ClassInfo {
   description: string;
   teacher_id: string | null;
   schedule: string;
+  default_hours?: number;
   profiles?: { full_name: string };
 }
 
@@ -105,7 +106,7 @@ export default function BossDashboard() {
   });
 
   const [newClass, setNewClass] = useState({
-    name: '', description: '', teacherId: '', schedule: '',
+    name: '', description: '', teacherId: '', schedule: '', defaultHours: '1',
   });
 
   const [editTeacher, setEditTeacher] = useState<Teacher | null>(null);
@@ -113,7 +114,7 @@ export default function BossDashboard() {
 
   const [editClass, setEditClass] = useState<ClassInfo | null>(null);
   const [editClassForm, setEditClassForm] = useState({
-    name: '', description: '', teacherId: '', schedule: '',
+    name: '', description: '', teacherId: '', schedule: '', defaultHours: '1',
   });
 
   const [trialPage, setTrialPage] = useState(1);
@@ -382,11 +383,12 @@ export default function BossDashboard() {
         description: newClass.description || '',
         teacher_id: newClass.teacherId || null,
         schedule: newClass.schedule || '',
+        default_hours: parseFloat(newClass.defaultHours) || 1.0,
       });
       if (error) throw error;
       toast.success('班级创建成功');
       setAddClassOpen(false);
-      setNewClass({ name: '', description: '', teacherId: '', schedule: '' });
+      setNewClass({ name: '', description: '', teacherId: '', schedule: '', defaultHours: '1' });
       queryClient.invalidateQueries({ queryKey: ['all-classes'] });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '创建失败');
@@ -426,6 +428,7 @@ export default function BossDashboard() {
       description: classInfo.description || '',
       teacherId: classInfo.teacher_id || '',
       schedule: classInfo.schedule || '',
+      defaultHours: (classInfo.default_hours || 1.0).toString(),
     });
     setEditClassOpen(true);
   };
@@ -440,6 +443,7 @@ export default function BossDashboard() {
         description: editClassForm.description || '',
         teacher_id: editClassForm.teacherId || null,
         schedule: editClassForm.schedule || '',
+        default_hours: parseFloat(editClassForm.defaultHours) || 1.0,
       }).eq('id', editClass.id);
       if (error) throw error;
       toast.success('班级信息已更新');
@@ -829,6 +833,7 @@ export default function BossDashboard() {
                         <div className="space-y-2"><Label>班级名称 *</Label><Input placeholder="如：周六上午班" value={newClass.name} onChange={(e) => setNewClass({ ...newClass, name: e.target.value })} /></div>
                         <div className="space-y-2"><Label>班级描述</Label><Input placeholder="简要描述" value={newClass.description} onChange={(e) => setNewClass({ ...newClass, description: e.target.value })} /></div>
                         <div className="space-y-2"><Label>上课时间</Label><Input placeholder="如：每周六 9:00-11:00" value={newClass.schedule} onChange={(e) => setNewClass({ ...newClass, schedule: e.target.value })} /></div>
+                        <div className="space-y-2"><Label>单次课时消耗</Label><Input type="number" step="0.5" placeholder="默认 1.0" value={newClass.defaultHours} onChange={(e) => setNewClass({ ...newClass, defaultHours: e.target.value })} /></div>
                         <div className="space-y-2">
                           <Label>关联教师</Label>
                           <Select value={newClass.teacherId || 'none'} onValueChange={(v) => setNewClass({ ...newClass, teacherId: v === 'none' ? '' : v })}>
@@ -848,14 +853,15 @@ export default function BossDashboard() {
               <CardContent>
                 <div className="rounded-lg border">
                   <Table>
-                    <TableHeader><TableRow><TableHead>班级名称</TableHead><TableHead>描述</TableHead><TableHead>上课时间</TableHead><TableHead>授课教师</TableHead><TableHead>操作</TableHead></TableRow></TableHeader>
+                    <TableHeader><TableRow><TableHead>班级名称</TableHead><TableHead>描述</TableHead><TableHead>上课时间</TableHead><TableHead>课时/次</TableHead><TableHead>授课教师</TableHead><TableHead>操作</TableHead></TableRow></TableHeader>
                     <TableBody>
-                      {allClasses.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">暂无班级</TableCell></TableRow> :
+                      {allClasses.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">暂无班级</TableCell></TableRow> :
                         allClasses.map((c) => (
                           <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openEditClass(c)}>
                             <TableCell className="font-medium">{c.name}</TableCell>
                             <TableCell>{c.description || '-'}</TableCell>
                             <TableCell>{c.schedule || '-'}</TableCell>
+                            <TableCell>{c.default_hours || 1.0}</TableCell>
                             <TableCell>{c.profiles?.full_name || <span className="text-muted-foreground">未分配</span>}</TableCell>
                             <TableCell>
                               <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); openEditClass(c); }}>
@@ -878,6 +884,7 @@ export default function BossDashboard() {
                   <div className="space-y-2"><Label>班级名称 *</Label><Input value={editClassForm.name} onChange={(e) => setEditClassForm({ ...editClassForm, name: e.target.value })} /></div>
                   <div className="space-y-2"><Label>班级描述</Label><Input value={editClassForm.description} onChange={(e) => setEditClassForm({ ...editClassForm, description: e.target.value })} /></div>
                   <div className="space-y-2"><Label>上课时间</Label><Input value={editClassForm.schedule} onChange={(e) => setEditClassForm({ ...editClassForm, schedule: e.target.value })} /></div>
+                  <div className="space-y-2"><Label>单次课时消耗</Label><Input type="number" step="0.5" value={editClassForm.defaultHours} onChange={(e) => setEditClassForm({ ...editClassForm, defaultHours: e.target.value })} /></div>
                   <div className="space-y-2">
                     <Label>关联教师</Label>
                     <Select value={editClassForm.teacherId || 'none'} onValueChange={(v) => setEditClassForm({ ...editClassForm, teacherId: v === 'none' ? '' : v })}>
