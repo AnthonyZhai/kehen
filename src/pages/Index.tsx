@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { BookOpen, Users, GraduationCap, Code, Star, MapPin, Phone, Mail, ArrowRight, Menu, X, Trophy, Medal, Rocket, Sparkles, Smile, Brain } from 'lucide-react';
 import { trackApplyClick, trackQueryClick, trackNavClick, trackCourseExposure, trackCourseClick, trackHomeDuration } from '@/lib/analytics';
 import { teachers as defaultTeachers, awards as defaultAwards, contactInfo } from '@/data/mockData';
@@ -367,6 +367,8 @@ export default function Index() {
                 </Button>
               </SheetTrigger>
               <SheetContent side="right" className={`w-[300px] sm:w-[360px] ${globalTheme === 'playful' ? 'rounded-l-[2rem]' : ''} ${theme.bg} ${theme.text} border-l border-white/20`}>
+                <SheetTitle className="sr-only">移动端导航菜单</SheetTitle>
+                <SheetDescription className="sr-only">包含网站导航链接和登录入口</SheetDescription>
                 <div className="flex flex-col gap-8 mt-8">
                   <div className="flex items-center gap-3 px-2">
                     <div className={`p-2 rounded-xl ${globalTheme === 'playful' ? 'bg-primary/10' : theme.sectionBg}`}>
