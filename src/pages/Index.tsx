@@ -543,7 +543,9 @@ export default function Index() {
                         <div className={`w-16 h-16 ${globalTheme === 'playful' ? 'bg-white shadow-sm' : `${theme.card} border-0`} rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-500`}>
                           <course.icon className={`w-8 h-8 ${globalTheme === 'playful' ? '' : theme.primary}`} />
                         </div>
-                        <h3 className="font-bold text-xl">{course.name}</h3>
+                        <h3 className={`font-bold ${course.name.length > 10 ? 'text-base' : course.name.length > 7 ? 'text-lg' : 'text-xl'} whitespace-nowrap`}>
+                          {course.name}
+                        </h3>
                         <span className={`px-3 py-1 ${globalTheme === 'playful' ? 'bg-white/50 backdrop-blur' : theme.sectionBg} rounded-full text-xs font-bold`}>
                           适合年龄：{course.age}
                         </span>
