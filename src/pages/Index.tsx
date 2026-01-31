@@ -345,8 +345,8 @@ export default function Index() {
                   onClick={() => handleNavClick(item.label, item.href)}
                   className={`px-2 lg:px-3 xl:px-4 py-2 rounded-full text-sm font-medium ${theme.mutedText} hover:${theme.primary} hover:bg-black/5 transition-all duration-300 whitespace-nowrap`}
                 >
-                  <span className="xl:hidden">{item.shortLabel}</span>
-                  <span className="hidden xl:inline">{item.label}</span>
+                  <span className="lg:hidden">{item.shortLabel}</span>
+                  <span className="hidden lg:inline">{item.label}</span>
                 </button>
               ))}
             </nav>
