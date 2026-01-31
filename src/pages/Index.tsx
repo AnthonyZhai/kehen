@@ -327,7 +327,7 @@ export default function Index() {
       {/* 导航栏 */}
       <header className="fixed top-4 left-4 right-4 z-50">
         <div className="container mx-auto max-w-6xl">
-          <div className={`${theme.nav} backdrop-blur-md px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between transition-all duration-300`}>
+          <div className={`${theme.nav} backdrop-blur-md px-3 sm:px-6 h-16 sm:h-20 flex items-center justify-between transition-all duration-300`}>
             <div className="flex items-center gap-2 sm:gap-3 cursor-pointer group" onClick={() => navigate('/')}>
               <div className={`p-2 sm:p-2.5 rounded-full ${globalTheme === 'playful' ? 'bg-primary' : theme.button} text-white group-hover:scale-110 transition-transform duration-300`}>
                 <Rocket className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -338,12 +338,12 @@ export default function Index() {
             </div>
 
             {/* 桌面端导航 */}
-            <nav className="hidden md:flex items-center gap-1 p-1.5 px-3">
+            <nav className="hidden md:flex items-center gap-0.5 sm:gap-1 p-1 px-1 sm:px-3">
               {navItems.map((item) => (
                 <button
                   key={item.href}
                   onClick={() => handleNavClick(item.label, item.href)}
-                  className={`px-3 xl:px-4 py-2 rounded-full text-sm font-medium ${theme.mutedText} hover:${theme.primary} hover:bg-black/5 transition-all duration-300 whitespace-nowrap`}
+                  className={`px-2 lg:px-3 xl:px-4 py-2 rounded-full text-sm font-medium ${theme.mutedText} hover:${theme.primary} hover:bg-black/5 transition-all duration-300 whitespace-nowrap`}
                 >
                   <span className="xl:hidden">{item.shortLabel}</span>
                   <span className="hidden xl:inline">{item.label}</span>
@@ -351,11 +351,11 @@ export default function Index() {
               ))}
             </nav>
 
-            <div className="hidden md:flex items-center gap-3">
-              <Button variant="ghost" onClick={() => navigate('/login')} className={`rounded-full hover:bg-black/5 ${theme.primary}`}>
+            <div className="hidden md:flex items-center gap-2 sm:gap-3">
+              <Button variant="ghost" onClick={() => navigate('/login')} className={`rounded-full hover:bg-black/5 ${theme.primary} px-2 sm:px-4`}>
                 登录
               </Button>
-              <Button onClick={() => navigate('/product')} className={`${theme.button} shadow-md hover:shadow-lg transition-all hover:-translate-y-0.5`}>
+              <Button onClick={() => navigate('/product')} className={`${theme.button} shadow-md hover:shadow-lg transition-all hover:-translate-y-0.5 px-3 sm:px-4`}>
                 课时管理
               </Button>
             </div>
