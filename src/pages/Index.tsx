@@ -332,7 +332,7 @@ export default function Index() {
               <div className={`p-2 sm:p-2.5 rounded-full ${globalTheme === 'playful' ? 'bg-primary' : theme.button} text-white group-hover:scale-110 transition-transform duration-300`}>
                 <Rocket className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <span className={`font-bold text-lg sm:text-2xl ${globalTheme === 'playful' ? 'bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent' : theme.text}`}>
+              <span className={`font-bold text-lg sm:text-2xl ${globalTheme === 'playful' ? 'bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent' : theme.text} whitespace-nowrap`}>
                 轻近编程
               </span>
             </div>
