@@ -366,7 +366,7 @@ export default function Index() {
                   <Menu className="w-6 h-6" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className={`w-[300px] sm:w-[360px] ${globalTheme === 'playful' ? 'rounded-l-[2rem]' : ''} ${theme.bg} ${theme.text} border-l border-white/20`}>
+              <SheetContent side="right" className={`w-[300px] sm:w-[360px] ${globalTheme === 'playful' ? 'rounded-l-[2rem]' : ''} ${theme.bg} ${theme.text} border-l border-white/20 overflow-y-auto`}>
                 <SheetTitle className="sr-only">移动端导航菜单</SheetTitle>
                 <SheetDescription className="sr-only">包含网站导航链接和登录入口</SheetDescription>
                 <div className="flex flex-col gap-8 mt-8">

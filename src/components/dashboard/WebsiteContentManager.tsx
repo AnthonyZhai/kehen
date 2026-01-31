@@ -401,11 +401,11 @@ export default function WebsiteContentManager() {
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-4">
-            <TabsTrigger value="courses"><Rocket className="w-4 h-4 mr-2" />课程乐园</TabsTrigger>
-            <TabsTrigger value="awards"><Trophy className="w-4 h-4 mr-2" />小小发明家</TabsTrigger>
-            <TabsTrigger value="teachers"><Smile className="w-4 h-4 mr-2" />明星导师</TabsTrigger>
-            <TabsTrigger value="settings"><Settings className="w-4 h-4 mr-2" />全局设置</TabsTrigger>
+          <TabsList className="mb-4 w-full justify-start overflow-x-auto h-auto flex-nowrap">
+            <TabsTrigger value="courses" className="shrink-0"><Rocket className="w-4 h-4 mr-2" />课程乐园</TabsTrigger>
+            <TabsTrigger value="awards" className="shrink-0"><Trophy className="w-4 h-4 mr-2" />小小发明家</TabsTrigger>
+            <TabsTrigger value="teachers" className="shrink-0"><Smile className="w-4 h-4 mr-2" />明星导师</TabsTrigger>
+            <TabsTrigger value="settings" className="shrink-0"><Settings className="w-4 h-4 mr-2" />全局设置</TabsTrigger>
           </TabsList>
 
           {/* Courses Tab */}
