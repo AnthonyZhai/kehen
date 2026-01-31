@@ -369,30 +369,30 @@ export default function Index() {
               <SheetContent side="right" className={`w-[300px] sm:w-[360px] ${globalTheme === 'playful' ? 'rounded-l-[2rem]' : ''} ${theme.bg} ${theme.text} border-l border-white/20 overflow-y-auto`}>
                 <SheetTitle className="sr-only">移动端导航菜单</SheetTitle>
                 <SheetDescription className="sr-only">包含网站导航链接和登录入口</SheetDescription>
-                <div className="flex flex-col gap-8 mt-8">
+                <div className="flex flex-col gap-4 sm:gap-8 mt-4 sm:mt-8">
                   <div className="flex items-center gap-3 px-2">
                     <div className={`p-2 rounded-xl ${globalTheme === 'playful' ? 'bg-primary/10' : theme.sectionBg}`}>
                       <Rocket className={`w-6 h-6 ${theme.primary}`} />
                     </div>
                     <span className="font-bold text-xl">轻近编程</span>
                   </div>
-                  <nav className="flex flex-col gap-3">
+                  <nav className="flex flex-col gap-2 sm:gap-3">
                     {navItems.map((item) => (
                       <button
                         key={item.href}
                         onClick={() => handleNavClick(item.label, item.href)}
-                        className={`flex items-center justify-between p-3 rounded-xl hover:bg-black/5 transition-colors group`}
+                        className={`flex items-center justify-between p-2 sm:p-3 rounded-xl hover:bg-black/5 transition-colors group`}
                       >
-                        <span className={`text-lg font-medium ${theme.text} opacity-80 group-hover:${theme.primary}`}>{item.label}</span>
+                        <span className={`text-base sm:text-lg font-medium ${theme.text} opacity-80 group-hover:${theme.primary}`}>{item.label}</span>
                         <ArrowRight className={`w-4 h-4 ${theme.mutedText} group-hover:${theme.primary} opacity-0 group-hover:opacity-100 transition-all`} />
                       </button>
                     ))}
                   </nav>
-                  <div className="flex flex-col gap-3 pt-6 border-t border-dashed border-gray-200/20">
-                    <Button variant="outline" className={`w-full h-12 text-lg ${theme.buttonOutline}`} onClick={() => { setMobileMenuOpen(false); navigate('/login'); }}>
+                  <div className="flex flex-col gap-3 pt-4 sm:pt-6 border-t border-dashed border-gray-200/20">
+                    <Button variant="outline" className={`w-full h-10 sm:h-12 text-base sm:text-lg ${theme.buttonOutline}`} onClick={() => { setMobileMenuOpen(false); navigate('/login'); }}>
                       登录
                     </Button>
-                    <Button className={`w-full h-12 text-lg shadow-lg ${theme.button}`} onClick={() => { setMobileMenuOpen(false); navigate('/product'); }}>
+                    <Button className={`w-full h-10 sm:h-12 text-base sm:text-lg shadow-lg ${theme.button}`} onClick={() => { setMobileMenuOpen(false); navigate('/product'); }}>
                       课时管理系统
                     </Button>
                   </div>
