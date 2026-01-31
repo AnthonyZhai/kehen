@@ -282,12 +282,12 @@ export default function Index() {
   };
 
   const navItems = [
-    { label: '关于我们', href: '#about' },
-    { label: '课程乐园', href: '#courses' },
-    { label: '魔法课堂', href: '#advantages' },
-    { label: '小小发明家', href: '#awards' },
-    { label: '明星导师', href: '#teachers' },
-    { label: '联系我们', href: '#contact' },
+    { label: '关于我们', shortLabel: '关于', href: '#about' },
+    { label: '课程乐园', shortLabel: '课程', href: '#courses' },
+    { label: '魔法课堂', shortLabel: '课堂', href: '#advantages' },
+    { label: '小小发明家', shortLabel: '荣誉', href: '#awards' },
+    { label: '明星导师', shortLabel: '导师', href: '#teachers' },
+    { label: '联系我们', shortLabel: '联系', href: '#contact' },
   ];
 
   return (
@@ -338,19 +338,20 @@ export default function Index() {
             </div>
 
             {/* 桌面端导航 */}
-            <nav className="hidden lg:flex items-center gap-1 p-1.5 px-3">
+            <nav className="hidden md:flex items-center gap-1 p-1.5 px-3">
               {navItems.map((item) => (
                 <button
                   key={item.href}
                   onClick={() => handleNavClick(item.label, item.href)}
                   className={`px-4 py-2 rounded-full text-sm font-medium ${theme.mutedText} hover:${theme.primary} hover:bg-black/5 transition-all duration-300`}
                 >
-                  {item.label}
+                  <span className="lg:hidden">{item.shortLabel}</span>
+                  <span className="hidden lg:inline">{item.label}</span>
                 </button>
               ))}
             </nav>
 
-            <div className="hidden lg:flex items-center gap-3">
+            <div className="hidden md:flex items-center gap-3">
               <Button variant="ghost" onClick={() => navigate('/login')} className={`rounded-full hover:bg-black/5 ${theme.primary}`}>
                 登录
               </Button>
@@ -361,7 +362,7 @@ export default function Index() {
 
             {/* 移动端菜单按钮 */}
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-              <SheetTrigger asChild className="lg:hidden">
+              <SheetTrigger asChild className="md:hidden">
                 <Button variant="ghost" size="icon" className={`rounded-full ${theme.text}`}>
                   <Menu className="w-6 h-6" />
                 </Button>
