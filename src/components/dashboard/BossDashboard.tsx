@@ -500,15 +500,15 @@ export default function BossDashboard() {
         )}
 
         <Tabs defaultValue="students" className="space-y-4">
-          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-            <TabsList className="inline-flex w-max sm:w-auto sm:flex-wrap gap-1">
-              <TabsTrigger value="students" className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"><Clock className="w-3 h-3 sm:w-4 sm:h-4" /><span className="hidden sm:inline">课时</span>统计</TabsTrigger>
-              <TabsTrigger value="student-mgmt" className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"><Users className="w-3 h-3 sm:w-4 sm:h-4" />学生<span className="hidden sm:inline">管理</span></TabsTrigger>
-              <TabsTrigger value="records" className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"><Clock className="w-3 h-3 sm:w-4 sm:h-4" /><span className="hidden sm:inline">签到</span>记录</TabsTrigger>
-              <TabsTrigger value="teachers" className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"><UserPlus className="w-3 h-3 sm:w-4 sm:h-4" />教师<span className="hidden sm:inline">管理</span></TabsTrigger>
-              <TabsTrigger value="classes" className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"><GraduationCap className="w-3 h-3 sm:w-4 sm:h-4" />班级<span className="hidden sm:inline">管理</span></TabsTrigger>
-              <TabsTrigger value="trials" className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"><FileText className="w-3 h-3 sm:w-4 sm:h-4" />试听<span className="hidden sm:inline">申请</span></TabsTrigger>
-              <TabsTrigger value="website-content" className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"><Layout className="w-3 h-3 sm:w-4 sm:h-4" />官网<span className="hidden sm:inline">内容</span></TabsTrigger>
+          <div className="-mx-4 px-4 sm:mx-0 sm:px-0">
+            <TabsList className="inline-flex w-full h-auto flex-wrap gap-2 justify-start sm:justify-center p-1">
+              <TabsTrigger value="students" className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3 flex-grow sm:flex-grow-0"><Clock className="w-3 h-3 sm:w-4 sm:h-4" /><span className="hidden sm:inline">课时</span>统计</TabsTrigger>
+              <TabsTrigger value="student-mgmt" className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3 flex-grow sm:flex-grow-0"><Users className="w-3 h-3 sm:w-4 sm:h-4" />学生<span className="hidden sm:inline">管理</span></TabsTrigger>
+              <TabsTrigger value="records" className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3 flex-grow sm:flex-grow-0"><Clock className="w-3 h-3 sm:w-4 sm:h-4" /><span className="hidden sm:inline">签到</span>记录</TabsTrigger>
+              <TabsTrigger value="teachers" className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3 flex-grow sm:flex-grow-0"><UserPlus className="w-3 h-3 sm:w-4 sm:h-4" />教师<span className="hidden sm:inline">管理</span></TabsTrigger>
+              <TabsTrigger value="classes" className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3 flex-grow sm:flex-grow-0"><GraduationCap className="w-3 h-3 sm:w-4 sm:h-4" />班级<span className="hidden sm:inline">管理</span></TabsTrigger>
+              <TabsTrigger value="trials" className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3 flex-grow sm:flex-grow-0"><FileText className="w-3 h-3 sm:w-4 sm:h-4" />试听<span className="hidden sm:inline">申请</span></TabsTrigger>
+              <TabsTrigger value="website-content" className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3 flex-grow sm:flex-grow-0"><Layout className="w-3 h-3 sm:w-4 sm:h-4" />官网<span className="hidden sm:inline">内容</span></TabsTrigger>
             </TabsList>
           </div>
 
