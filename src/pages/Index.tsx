@@ -338,7 +338,7 @@ export default function Index() {
             </div>
 
             {/* 桌面端导航 */}
-            <nav className="hidden md:flex items-center gap-1 p-1.5 px-3">
+            <nav className="hidden lg:flex items-center gap-1 p-1.5 px-3">
               {navItems.map((item) => (
                 <button
                   key={item.href}
@@ -350,7 +350,7 @@ export default function Index() {
               ))}
             </nav>
 
-            <div className="hidden md:flex items-center gap-3">
+            <div className="hidden lg:flex items-center gap-3">
               <Button variant="ghost" onClick={() => navigate('/login')} className={`rounded-full hover:bg-black/5 ${theme.primary}`}>
                 登录
               </Button>
@@ -361,7 +361,7 @@ export default function Index() {
 
             {/* 移动端菜单按钮 */}
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-              <SheetTrigger asChild className="md:hidden">
+              <SheetTrigger asChild className="lg:hidden">
                 <Button variant="ghost" size="icon" className={`rounded-full ${theme.text}`}>
                   <Menu className="w-6 h-6" />
                 </Button>
