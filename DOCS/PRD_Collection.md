@@ -4,9 +4,9 @@
 
 ## 文档列表
 
-### 1. [PRD 01: 官网内容动态化与试听系统](file:///c:/Users/antho/Desktop/enter_课痕/DOCS/PRD_01_Website_Content_and_Trial_System.md)
-- **核心内容**: 数据库实时对接、预约试听流程优化、内容管理联动。
-- **状态**: 已完成
+### 1. [PRD 01: 系统核心业务逻辑与功能全景](file:///c:/Users/antho/Desktop/enter_课痕/DOCS/PRD_01_Core_Business_and_System_Overview.md)
+- **核心内容**: 涵盖教师拍照签到、Boss 全能管理、家长透明互通以及数据动态化对接。
+- **状态**: 已完成 (全量更新)
 
 ### 2. [PRD 02: 多端响应式导航与布局适配](file:///c:/Users/antho/Desktop/enter_课痕/DOCS/PRD_02_Multi_Device_Responsive_Navigation.md)
 - **核心内容**: iPad/Mobile 导航断点逻辑、简称/全称自适应、小屏布局挤压修复、后台菜单换行适配。
