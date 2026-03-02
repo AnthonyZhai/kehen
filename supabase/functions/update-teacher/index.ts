@@ -75,20 +75,20 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 更新 Auth 用户的邮箱和密码
-    const authUpdates: Record<string, string> = {};
+    // 更新 Auth 用户信息（邮箱、密码、显示名称）
+    const authUpdates: Record<string, unknown> = {
+      user_metadata: { full_name: fullName, role: 'teacher' },
+    };
     if (email) authUpdates.email = email;
     if (password) authUpdates.password = password;
 
-    if (Object.keys(authUpdates).length > 0) {
-      const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(teacherId, authUpdates);
-      if (authUpdateError) {
-        console.error("Auth update error:", authUpdateError);
-        return new Response(
-          JSON.stringify({ error: `更新账号信息失败: ${authUpdateError.message}` }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+    const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(teacherId, authUpdates);
+    if (authUpdateError) {
+      console.error("Auth update error:", authUpdateError);
+      return new Response(
+        JSON.stringify({ error: `更新账号信息失败: ${authUpdateError.message}` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // 更新 profiles 表的姓名和邮箱

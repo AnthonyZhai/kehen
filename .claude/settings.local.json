@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(supabase:*)",
-      "Bash(cmd.exe:*)"
+      "Bash(cmd.exe:*)",
+      "Bash(node:*)",
+      "Bash(mv:*)"
     ]
   }
 }

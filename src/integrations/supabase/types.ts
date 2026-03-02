@@ -175,6 +175,54 @@ export type Database = {
         }
         Relationships: []
       }
+      renewal_records: {
+        Row: {
+          id: string
+          student_id: string
+          hours_added: number
+          previous_remaining: number
+          previous_total: number
+          renewed_at: string
+          created_by: string | null
+          notes: string | null
+        }
+        Insert: {
+          id?: string
+          student_id: string
+          hours_added: number
+          previous_remaining: number
+          previous_total: number
+          renewed_at?: string
+          created_by?: string | null
+          notes?: string | null
+        }
+        Update: {
+          id?: string
+          student_id?: string
+          hours_added?: number
+          previous_remaining?: number
+          previous_total?: number
+          renewed_at?: string
+          created_by?: string | null
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "renewal_records_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_records_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       public_awards: {
         Row: {
           award_name: string

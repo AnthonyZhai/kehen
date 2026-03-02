@@ -13,7 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { RefreshCw, Download, AlertTriangle, ChevronLeft, ChevronRight, Search, Users, Clock, Plus, GraduationCap, UserPlus, Pencil, Upload, User, FileText, Layout } from 'lucide-react';
+import { RefreshCw, Download, AlertTriangle, ChevronLeft, ChevronRight, Search, Users, Clock, Plus, GraduationCap, UserPlus, Pencil, Upload, User, FileText, Layout, Trash2 } from 'lucide-react';
 import WebsiteContentManager from './WebsiteContentManager';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -84,6 +84,15 @@ export default function BossDashboard() {
   const [submitting, setSubmitting] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
+
+  // 导入进度状态
+  const [importProgress, setImportProgress] = useState({ importing: false, current: 0, total: 0 });
+
+  // 续费相关状态
+  const [renewalOpen, setRenewalOpen] = useState(false);
+  const [renewalStudent, setRenewalStudent] = useState<Student | null>(null);
+  const [renewalForm, setRenewalForm] = useState({ hoursToAdd: '', notes: '' });
   
   const [studentFilters, setStudentFilters] = useState({
     name: '',
@@ -395,6 +404,19 @@ export default function BossDashboard() {
     } finally { setSubmitting(false); }
   };
 
+  // 删除学生
+  const handleDeleteStudent = async (student: Student) => {
+    if (!window.confirm(`确定要删除学生「${student.name}」吗？该操作不可撤销，相关的课时记录和续费记录也会被一并删除。`)) return;
+    try {
+      const { error } = await supabase.from('students').delete().eq('id', student.id);
+      if (error) throw error;
+      toast.success(`已删除学生「${student.name}」`);
+      queryClient.invalidateQueries({ queryKey: ['all-students'] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '删除失败');
+    }
+  };
+
   // 打开编辑教师对话框
   const openEditTeacher = (teacher: Teacher) => {
     setEditTeacher(teacher);
@@ -481,6 +503,113 @@ export default function BossDashboard() {
     toast.success('导出成功');
   };
 
+  // 导入学生数据
+  const handleImportStudents = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      // 优先尝试 UTF-8，若表头匹配不到中文则回退 GBK
+      let text = await file.text();
+      if (!text.includes('姓名')) {
+        const buf = await file.arrayBuffer();
+        const decoder = new TextDecoder('gbk');
+        text = decoder.decode(buf);
+      }
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+      if (lines.length < 2) { toast.error('CSV文件格式不正确'); return; }
+
+      const headers = lines[0].split(',').map(h => h.trim());
+      const nameIdx = headers.findIndex(h => h.includes('姓名'));
+      const remainIdx = headers.findIndex(h => h.includes('剩余'));
+      const totalIdx = headers.findIndex(h => h.includes('总'));
+
+      if (nameIdx === -1 || remainIdx === -1 || totalIdx === -1) {
+        toast.error('CSV须包含"客户姓名/学生姓名"、"剩余课时"、"总课时"列');
+        return;
+      }
+
+      const dataLines = lines.length - 1;
+      setImportProgress({ importing: true, current: 0, total: dataLines });
+
+      let updated = 0, created = 0;
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map(c => c.trim());
+        const name = cols[nameIdx];
+        const remainingHours = parseFloat(cols[remainIdx]) || 0;
+        const totalHours = parseFloat(cols[totalIdx]) || 0;
+        if (!name) {
+          setImportProgress(prev => ({ ...prev, current: i }));
+          continue;
+        }
+
+        const existing = allStudents.find(s => s.name === name);
+        if (existing) {
+          await supabase.from('students').update({ remaining_hours: remainingHours, total_hours: totalHours }).eq('id', existing.id);
+          updated++;
+        } else {
+          await supabase.from('students').insert({ name, remaining_hours: remainingHours, total_hours: totalHours, alert_threshold: 2, status: 'active' });
+          created++;
+        }
+        setImportProgress(prev => ({ ...prev, current: i }));
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['all-students'] });
+      toast.success(`导入完成：更新${updated}条，新建${created}条`);
+    } catch (error) {
+      toast.error('导入失败，请检查CSV格式');
+    } finally {
+      setImportProgress({ importing: false, current: 0, total: 0 });
+      if (csvInputRef.current) csvInputRef.current.value = '';
+    }
+  };
+
+  // 续费
+  const openRenewal = (student: Student) => {
+    setRenewalStudent(student);
+    setRenewalForm({ hoursToAdd: '', notes: '' });
+    setRenewalOpen(true);
+  };
+
+  const handleRenewal = async () => {
+    if (!renewalStudent || !renewalForm.hoursToAdd) { toast.error('请填写新增课时'); return; }
+    const hoursToAdd = parseFloat(renewalForm.hoursToAdd);
+    if (isNaN(hoursToAdd) || hoursToAdd <= 0) { toast.error('请输入有效的课时数'); return; }
+
+    setSubmitting(true);
+    try {
+      const prevRemaining = renewalStudent.remaining_hours;
+      const prevTotal = renewalStudent.total_hours;
+      const newRemaining = prevRemaining + hoursToAdd;
+      const newTotal = prevTotal + hoursToAdd;
+
+      const { error: updateErr } = await supabase.from('students').update({
+        remaining_hours: newRemaining,
+        total_hours: newTotal,
+      }).eq('id', renewalStudent.id);
+      if (updateErr) throw updateErr;
+
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const { error: insertErr } = await supabase.from('renewal_records').insert({
+        student_id: renewalStudent.id,
+        hours_added: hoursToAdd,
+        previous_remaining: prevRemaining,
+        previous_total: prevTotal,
+        created_by: user?.id || null,
+        notes: renewalForm.notes || null,
+      });
+      if (insertErr) throw insertErr;
+
+      queryClient.invalidateQueries({ queryKey: ['all-students'] });
+      toast.success(`已为 ${renewalStudent.name} 续费 ${hoursToAdd} 课时`);
+      setRenewalOpen(false);
+      setRenewalStudent(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '续费失败');
+    } finally { setSubmitting(false); }
+  };
+
   // 获取家长名称
   const getParentName = (parentId: string | null) => {
     if (!parentId) return '-';
@@ -534,10 +663,28 @@ export default function BossDashboard() {
                     <Button variant="outline" size="sm" onClick={handleExportStudents} className="text-xs sm:text-sm">
                       <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />导出
                     </Button>
+                    <Button variant="outline" size="sm" onClick={() => csvInputRef.current?.click()} className="text-xs sm:text-sm" disabled={importProgress.importing}>
+                      <Upload className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />{importProgress.importing ? '导入中...' : '导入'}
+                    </Button>
+                    <input ref={csvInputRef} type="file" accept=".csv" className="hidden" onChange={handleImportStudents} />
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
+                {importProgress.importing && (
+                  <div className="mb-4 space-y-2">
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span>正在导入学生数据...</span>
+                      <span>{importProgress.current}/{importProgress.total}</span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-primary transition-all duration-150"
+                        style={{ width: `${Math.round((importProgress.current / importProgress.total) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
                 <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3 mb-4">
                   <div className="relative flex-1 min-w-0 sm:min-w-[200px]">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -560,10 +707,10 @@ export default function BossDashboard() {
                 </div>
                 <div className="rounded-lg border overflow-x-auto">
                   <Table>
-                    <TableHeader><TableRow><TableHead className="whitespace-nowrap">学生姓名</TableHead><TableHead className="whitespace-nowrap">班级</TableHead><TableHead className="whitespace-nowrap hidden sm:table-cell">所学内容</TableHead><TableHead className="whitespace-nowrap">总课时</TableHead><TableHead className="whitespace-nowrap">剩余</TableHead><TableHead className="whitespace-nowrap">状态</TableHead></TableRow></TableHeader>
+                    <TableHeader><TableRow><TableHead className="whitespace-nowrap">学生姓名</TableHead><TableHead className="whitespace-nowrap">班级</TableHead><TableHead className="whitespace-nowrap hidden sm:table-cell">所学内容</TableHead><TableHead className="whitespace-nowrap">总课时</TableHead><TableHead className="whitespace-nowrap">剩余</TableHead><TableHead className="whitespace-nowrap">状态</TableHead><TableHead className="whitespace-nowrap">操作</TableHead></TableRow></TableHeader>
                     <TableBody>
                       {paginatedStudents.length === 0 ? (
-                        <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground text-sm">暂无学生数据</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground text-sm">暂无学生数据</TableCell></TableRow>
                       ) : paginatedStudents.map((s) => (
                         <TableRow key={s.id}>
                           <TableCell className="font-medium text-sm whitespace-nowrap">{s.name}</TableCell>
@@ -572,6 +719,11 @@ export default function BossDashboard() {
                           <TableCell className="text-sm">{s.total_hours}</TableCell>
                           <TableCell><Badge variant={s.remaining_hours <= s.alert_threshold ? 'destructive' : 'secondary'} className="text-xs">{s.remaining_hours}</Badge></TableCell>
                           <TableCell>{s.remaining_hours <= 0 ? <Badge variant="destructive" className="text-xs">欠费</Badge> : s.remaining_hours <= s.alert_threshold ? <Badge variant="outline" className="border-orange-400 text-orange-600 text-xs">续费</Badge> : <Badge variant="outline" className="border-green-400 text-green-600 text-xs">正常</Badge>}</TableCell>
+                          <TableCell>
+                            <Button variant="outline" size="sm" className="text-xs" onClick={() => openRenewal(s)}>
+                              <Plus className="w-3 h-3 mr-1" />续费
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -658,9 +810,14 @@ export default function BossDashboard() {
                           <TableCell>{s.subject || '-'}</TableCell>
                           <TableCell>{getParentName(s.parent_id)}</TableCell>
                           <TableCell>
-                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); openEditStudent(s); }}>
-                              <Pencil className="w-4 h-4" />
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); openEditStudent(s); }}>
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteStudent(s); }}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -1014,6 +1171,35 @@ export default function BossDashboard() {
             <WebsiteContentManager />
           </TabsContent>
         </Tabs>
+
+        {/* 续费对话框 */}
+        <Dialog open={renewalOpen} onOpenChange={setRenewalOpen}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>学生续费</DialogTitle>
+              <DialogDescription className="sr-only">为学生添加新的课时</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div className="space-y-1">
+                <Label>学生姓名</Label>
+                <p className="text-sm font-medium">{renewalStudent?.name}</p>
+              </div>
+              <div className="space-y-1">
+                <Label>当前剩余课时</Label>
+                <p className="text-sm font-medium">{renewalStudent?.remaining_hours}</p>
+              </div>
+              <div className="space-y-2">
+                <Label>新增课时 *</Label>
+                <Input type="number" step="0.5" min="0" placeholder="请输入新增课时数" value={renewalForm.hoursToAdd} onChange={(e) => setRenewalForm({ ...renewalForm, hoursToAdd: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>备注</Label>
+                <Input placeholder="可选，如付款方式等" value={renewalForm.notes} onChange={(e) => setRenewalForm({ ...renewalForm, notes: e.target.value })} />
+              </div>
+              <Button onClick={handleRenewal} className="w-full" disabled={submitting}>{submitting ? '提交中...' : '确认续费'}</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
