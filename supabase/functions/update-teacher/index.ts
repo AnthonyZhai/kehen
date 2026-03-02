@@ -54,66 +54,62 @@ Deno.serve(async (req) => {
 
     if (!callerProfile || callerProfile.role !== "boss") {
       return new Response(
-        JSON.stringify({ error: "权限不足，仅管理员可以创建教师账号" }),
+        JSON.stringify({ error: "权限不足，仅管理员可以修改教师信息" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const { fullName, email, password } = await req.json();
+    const { teacherId, fullName, email, password } = await req.json();
 
-    if (!fullName || !email || !password) {
+    if (!teacherId || !fullName) {
       return new Response(
         JSON.stringify({ error: "缺少必填字段" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    if (password.length < 6) {
+    if (password && password.length < 6) {
       return new Response(
         JSON.stringify({ error: "密码长度至少6位" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // 检查邮箱是否已存在
-    const { data: existingProfile } = await supabaseAdmin
-      .from('profiles')
-      .select('id')
-      .eq('email', email)
-      .maybeSingle();
+    // 更新 Auth 用户的邮箱和密码
+    const authUpdates: Record<string, string> = {};
+    if (email) authUpdates.email = email;
+    if (password) authUpdates.password = password;
 
-    if (existingProfile) {
-      return new Response(
-        JSON.stringify({ error: "该邮箱已被注册" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (Object.keys(authUpdates).length > 0) {
+      const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(teacherId, authUpdates);
+      if (authUpdateError) {
+        console.error("Auth update error:", authUpdateError);
+        return new Response(
+          JSON.stringify({ error: `更新账号信息失败: ${authUpdateError.message}` }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
-    // 创建教师账号
-    const { data: authData, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: {
-        full_name: fullName,
-        role: 'teacher'
-      }
-    });
+    // 更新 profiles 表的姓名和邮箱
+    const profileUpdates: Record<string, string> = { full_name: fullName };
+    if (email) profileUpdates.email = email;
 
-    if (createError) {
-      console.error("Auth error:", createError);
+    const { error: updateError } = await supabaseAdmin
+      .from("profiles")
+      .update(profileUpdates)
+      .eq("id", teacherId);
+
+    if (updateError) {
+      console.error("Update error:", updateError);
       return new Response(
-        JSON.stringify({ error: `创建账号失败: ${createError.message}` }),
+        JSON.stringify({ error: `更新失败: ${updateError.message}` }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        userId: authData.user.id,
-        message: '教师账号创建成功'
-      }),
+      JSON.stringify({ success: true, message: "教师信息已更新" }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 

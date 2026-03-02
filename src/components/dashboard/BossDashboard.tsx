@@ -110,7 +110,7 @@ export default function BossDashboard() {
   });
 
   const [editTeacher, setEditTeacher] = useState<Teacher | null>(null);
-  const [editTeacherForm, setEditTeacherForm] = useState({ fullName: '' });
+  const [editTeacherForm, setEditTeacherForm] = useState({ fullName: '', email: '', password: '' });
 
   const [editClass, setEditClass] = useState<ClassInfo | null>(null);
   const [editClassForm, setEditClassForm] = useState({
@@ -398,19 +398,28 @@ export default function BossDashboard() {
   // 打开编辑教师对话框
   const openEditTeacher = (teacher: Teacher) => {
     setEditTeacher(teacher);
-    setEditTeacherForm({ fullName: teacher.full_name });
+    setEditTeacherForm({ fullName: teacher.full_name, email: teacher.email, password: '' });
     setEditTeacherOpen(true);
   };
 
   // 保存教师编辑
   const handleSaveTeacher = async () => {
     if (!editTeacher || !editTeacherForm.fullName) { toast.error('请填写教师姓名'); return; }
+    if (!editTeacherForm.email) { toast.error('请填写邮箱'); return; }
+    if (editTeacherForm.password && editTeacherForm.password.length < 6) { toast.error('密码至少6位'); return; }
     setSubmitting(true);
     try {
-      const { error } = await supabase.from('profiles').update({
-        full_name: editTeacherForm.fullName,
-      }).eq('id', editTeacher.id);
+      const body: Record<string, string> = {
+        teacherId: editTeacher.id,
+        fullName: editTeacherForm.fullName,
+        email: editTeacherForm.email,
+      };
+      if (editTeacherForm.password) {
+        body.password = editTeacherForm.password;
+      }
+      const { data, error } = await supabase.functions.invoke('update-teacher', { body });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       toast.success('教师信息已更新');
       setEditTeacherOpen(false);
       setEditTeacher(null);
@@ -824,7 +833,8 @@ export default function BossDashboard() {
                 </DialogHeader>
                 <div className="space-y-4 mt-4">
                   <div className="space-y-2"><Label>教师姓名 *</Label><Input value={editTeacherForm.fullName} onChange={(e) => setEditTeacherForm({ ...editTeacherForm, fullName: e.target.value })} /></div>
-                  <div className="space-y-2"><Label>邮箱（不可修改）</Label><Input value={editTeacher?.email || ''} disabled className="bg-muted" /></div>
+                  <div className="space-y-2"><Label>邮箱 *</Label><Input type="email" value={editTeacherForm.email} onChange={(e) => setEditTeacherForm({ ...editTeacherForm, email: e.target.value })} /></div>
+                  <div className="space-y-2"><Label>新密码（不修改请留空）</Label><Input type="password" value={editTeacherForm.password} onChange={(e) => setEditTeacherForm({ ...editTeacherForm, password: e.target.value })} placeholder="留空则不修改密码" /></div>
                   <Button onClick={handleSaveTeacher} className="w-full" disabled={submitting}>{submitting ? '保存中...' : '保存修改'}</Button>
                 </div>
               </DialogContent>
