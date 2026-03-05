@@ -26,31 +26,28 @@ interface ClassInfo {
   default_hours: number;
 }
 
-type ViewState = 'checkin' | 'result';
-
 export default function TeacherDashboard() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  const [viewState, setViewState] = useState<ViewState>('checkin');
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
+
   const [checkedStudents, setCheckedStudents] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<string>('all');
 
   // 获取班级列表
   const { data: classes = [] } = useQuery({
-    queryKey: ['teacher-classes'],
+    queryKey: ['teacher-classes', profile?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('classes')
         .select('id, name, schedule, default_hours')
+        .eq('teacher_id', profile!.id)
         .order('name');
       if (error) throw error;
       return data as ClassInfo[];
     },
+    enabled: !!profile?.id,
   });
 
   // 获取学生列表
@@ -69,24 +66,27 @@ export default function TeacherDashboard() {
 
   // 根据选择的班级过滤学生
   const students = useMemo(() => {
-    if (selectedClassId === 'all') return allStudents;
+    if (selectedClassId === 'all') {
+      const teacherClassNames = classes.map(c => c.name);
+      return allStudents.filter(s => teacherClassNames.includes(s.class_name));
+    }
     const selectedClass = classes.find(c => c.id === selectedClassId);
-    if (!selectedClass) return allStudents;
+    if (!selectedClass) return [];
     return allStudents.filter(s => s.class_name === selectedClass.name);
   }, [allStudents, classes, selectedClassId]);
 
   // 自动选择当前时间的班级
   useEffect(() => {
     if (classes.length === 0) return;
-    
+
     const now = new Date();
     const currentDay = getDay(now); // 0 = Sunday, 1 = Monday
     const currentHour = getHours(now);
-    
+
     // 简单的中文星期映射
     const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
     const todayStr = weekDays[currentDay];
-    
+
     // 查找包含今天且时间接近的班级
     const matchedClass = classes.find(c => {
       if (!c.schedule) return false;
@@ -118,23 +118,11 @@ export default function TeacherDashboard() {
   };
 
   // 拍照处理
-  const handleCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setPhotoFile(file);
-      const url = URL.createObjectURL(file);
-      setPhotoUrl(url);
-      
-      // 模拟人脸识别 - 随机选择一些学生作为"识别到的"
-      const recognizedIds = new Set<string>();
-      students.forEach(s => {
-        if (Math.random() > 0.3) { // 70%概率识别成功
-          recognizedIds.add(s.id);
-        }
-      });
-      setCheckedStudents(recognizedIds);
-      
-      setViewState('result');
+      // Directly trigger submission upon capturing photo
+      submitCheckin.mutate(file);
     }
   };
 
@@ -151,15 +139,15 @@ export default function TeacherDashboard() {
 
   // 提交签到
   const submitCheckin = useMutation({
-    mutationFn: async () => {
-      if (!photoFile || checkedStudents.size === 0) {
-        throw new Error('请先拍照并选择签到学生');
+    mutationFn: async (capturedFile: File) => {
+      if (!capturedFile || checkedStudents.size === 0) {
+        throw new Error('请选择签到学生');
       }
 
       setSubmitting(true);
-      const uploadedUrl = await uploadPhoto(photoFile);
+      const uploadedUrl = await uploadPhoto(capturedFile);
       const classDate = new Date().toISOString();
-      
+
       const selectedClass = classes.find(c => c.id === selectedClassId);
       const hoursToDeduct = selectedClass?.default_hours || 1.0;
 
@@ -188,9 +176,6 @@ export default function TeacherDashboard() {
 
   // 重置状态
   const resetState = () => {
-    setViewState('checkin');
-    setPhotoUrl(null);
-    setPhotoFile(null);
     setCheckedStudents(new Set());
     setSubmitting(false);
     if (fileInputRef.current) {
@@ -198,97 +183,90 @@ export default function TeacherDashboard() {
     }
   };
 
-  // 签到页面
-  if (viewState === 'checkin') {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex flex-col items-center justify-center p-4">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold mb-2">课堂签到</h1>
-          <p className="text-muted-foreground">点击下方按钮拍摄课堂照片</p>
-        </div>
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
-        <div className="w-full max-w-xs mb-8">
-          <Select value={selectedClassId} onValueChange={setSelectedClassId}>
-            <SelectTrigger>
-              <SelectValue placeholder="选择当前上课班级" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">所有学生</SelectItem>
-              {classes.map(c => (
+  // 签到页面
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex flex-col items-center justify-start py-8 px-4">
+      <div className="text-center mb-6">
+        <h1 className="text-2xl font-bold mb-2">课堂签到</h1>
+        <p className="text-muted-foreground">请先选择签到学生，再点击一键签到拍照</p>
+      </div>
+
+      <div className="w-full max-w-xs mb-8">
+        <Select value={selectedClassId} onValueChange={setSelectedClassId}>
+          <SelectTrigger>
+            <SelectValue placeholder="选择当前上课班级" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">所有我的班级</SelectItem>
+            {[...classes]
+              .sort((a, b) => {
+                const weekOrder: Record<string, number> = { '周一': 1, '周二': 2, '周三': 3, '周四': 4, '周五': 5, '周六': 6, '周日': 7 };
+                const parse = (s: string) => {
+                  if (!s) return { day: 99, time: 9999 };
+                  const dayMatch = s.match(/周[一二三四五六日]/);
+                  const timeMatch = s.match(/(\d{1,2}):(\d{2})/);
+                  return {
+                    day: dayMatch ? (weekOrder[dayMatch[0]] ?? 99) : 99,
+                    time: timeMatch ? parseInt(timeMatch[1]) * 60 + parseInt(timeMatch[2]) : 9999,
+                  };
+                };
+                const pa = parse(a.schedule);
+                const pb = parse(b.schedule);
+                if (pa.day !== pb.day) return pa.day - pb.day;
+                return pa.time - pb.time;
+              })
+              .map(c => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name} ({c.schedule || '无时间'}) - {c.default_hours || 1}课时
                 </SelectItem>
               ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <button
-          onClick={() => {
-            trackTeacherCheckinClick();
-            fileInputRef.current?.click();
-          }}
-          className="w-40 h-40 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground flex flex-col items-center justify-center shadow-2xl shadow-primary/30 transition-all hover:scale-105 active:scale-95"
-        >
-          <Camera className="w-16 h-16 mb-2" />
-          <span className="text-lg font-medium">一键签到</span>
-        </button>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleCapture}
-          className="hidden"
-        />
-
-        <p className="mt-8 text-sm text-muted-foreground">
-          今日已签到 {students.length} 位学生
-        </p>
+          </SelectContent>
+        </Select>
       </div>
-    );
-  }
 
-  // 签到结果页面
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background p-4">
-      <div className="max-w-md mx-auto">
-        {/* 返回按钮 */}
-        <Button
-          variant="ghost"
-          onClick={resetState}
-          className="mb-4"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          重新拍照
-        </Button>
+      <button
+        onClick={() => {
+          if (checkedStudents.size === 0) {
+            toast.error('请至少选择一名学生');
+            return;
+          }
+          setConfirmOpen(true);
+        }}
+        disabled={submitting}
+        className="w-40 h-40 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground flex flex-col items-center justify-center shadow-2xl shadow-primary/30 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:pointer-events-none mb-8"
+      >
+        <Camera className="w-16 h-16 mb-2" />
+        <span className="text-lg font-medium">{submitting ? '提交中...' : '一键签到'}</span>
+      </button>
 
-        {/* 签到照片 */}
-        <Card className="mb-4 overflow-hidden">
-          <div className="relative">
-            {photoUrl && (
-              <img
-                src={photoUrl}
-                alt="签到照片"
-                className="w-full h-64 object-cover"
-              />
-            )}
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
-              <p className="text-white text-sm font-medium">
-                {format(new Date(), 'yyyy年MM月dd日 HH:mm:ss', { locale: zhCN })}
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        {/* 学生签到列表 */}
+      <div className="w-full max-w-md">
         <Card>
           <CardContent className="p-4">
-            <h3 className="text-sm font-medium text-muted-foreground mb-3">
-              点击学生姓名进行手动补签
-            </h3>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-sm font-medium text-muted-foreground">
+                选择已到学生名片：
+              </h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (checkedStudents.size === students.length) {
+                    setCheckedStudents(new Set());
+                  } else {
+                    setCheckedStudents(new Set(students.map(s => s.id)));
+                  }
+                }}
+              >
+                {checkedStudents.size === students.length ? '全部取消' : '全部选中'}
+              </Button>
+            </div>
+
+            <div className="flex flex-wrap gap-3 max-h-64 overflow-y-auto p-1">
+              {students.length === 0 && (
+                <div className="w-full text-center py-4 text-muted-foreground text-sm">此班级暂无学生</div>
+              )}
               {students.map((student) => {
                 const isChecked = checkedStudents.has(student.id);
                 return (
@@ -298,7 +276,7 @@ export default function TeacherDashboard() {
                     className={cn(
                       'relative w-14 h-14 rounded-full flex items-center justify-center text-sm font-medium transition-all',
                       isChecked
-                        ? 'bg-green-500 text-white shadow-lg shadow-green-500/30'
+                        ? 'bg-green-500 text-white shadow-lg shadow-green-500/30 ring-2 ring-green-500 ring-offset-2'
                         : 'bg-muted text-muted-foreground hover:bg-muted/80'
                     )}
                   >
@@ -314,17 +292,37 @@ export default function TeacherDashboard() {
             </div>
           </CardContent>
         </Card>
-
-        {/* 提交按钮 */}
-        <Button
-          onClick={() => submitCheckin.mutate()}
-          disabled={checkedStudents.size === 0 || submitting}
-          size="lg"
-          className="w-full mt-4 h-14 text-lg rounded-xl"
-        >
-          {submitting ? '提交中...' : `确认签到 (${checkedStudents.size}人)`}
-        </Button>
       </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleCapture}
+        className="hidden"
+      />
+
+      {confirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <Card className="w-full max-w-sm">
+            <CardContent className="p-6">
+              <h2 className="text-xl font-bold mb-4">确认签到</h2>
+              <p className="mb-6 text-muted-foreground">
+                即将为已选中的 <strong className="text-foreground">{checkedStudents.size}</strong> 位学生签到。签到后将开启摄像头拍照并自动完成。
+              </p>
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => setConfirmOpen(false)}>取消</Button>
+                <Button onClick={() => {
+                  setConfirmOpen(false);
+                  trackTeacherCheckinClick();
+                  fileInputRef.current?.click();
+                }}>确认拍照</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

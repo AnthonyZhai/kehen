@@ -23,6 +23,7 @@ interface Student {
   id: string;
   name: string;
   class_name: string;
+  class_id?: string | null;
   subject: string;
   remaining_hours: number;
   total_hours: number;
@@ -93,21 +94,30 @@ export default function BossDashboard() {
   const [renewalOpen, setRenewalOpen] = useState(false);
   const [renewalStudent, setRenewalStudent] = useState<Student | null>(null);
   const [renewalForm, setRenewalForm] = useState({ hoursToAdd: '', notes: '' });
-  
+
   const [studentFilters, setStudentFilters] = useState({
     name: '',
     class_name: '',
     sortBy: 'name' as 'name' | 'remaining_hours' | 'class_name',
     sortOrder: 'asc' as 'asc' | 'desc',
+    class_id: '',
   });
 
   const [newStudent, setNewStudent] = useState({
-    studentName: '', className: '', subject: '', totalHours: '', remainingHours: '', parentId: '',
+    name: '', className: '', subject: '', totalHours: '', remainingHours: '', parentId: '', photoUrl: '', alertThreshold: '0', classId: '',
   });
 
   const [editStudent, setEditStudent] = useState<Student | null>(null);
   const [editForm, setEditForm] = useState({
-    name: '', className: '', subject: '', totalHours: '', remainingHours: '', alertThreshold: '', parentId: '', photoUrl: '',
+    name: '', className: '', subject: '', totalHours: '', remainingHours: '', alertThreshold: '', parentId: '', photoUrl: '', classId: '',
+  });
+
+  const [studentMgmtFilters, setStudentMgmtFilters] = useState({
+    name: '',
+    class_name: '',
+    sortBy: 'name' as 'name' | 'remaining_hours' | 'class_name',
+    sortOrder: 'asc' as 'asc' | 'desc',
+    class_id: '',
   });
 
   const [newTeacher, setNewTeacher] = useState({
@@ -191,11 +201,12 @@ export default function BossDashboard() {
   const filteredStudents = useMemo(() => {
     let result = [...allStudents];
     if (studentFilters.name) result = result.filter(s => s.name.includes(studentFilters.name));
-    if (studentFilters.class_name) result = result.filter(s => s.class_name === studentFilters.class_name);
+    if (studentFilters.class_id) result = result.filter(s => s.class_id === studentFilters.class_id);
+    else if (studentFilters.class_name) result = result.filter(s => s.class_name === studentFilters.class_name);
     result.sort((a, b) => {
       let cmp = 0;
       if (studentFilters.sortBy === 'name') cmp = a.name.localeCompare(b.name);
-      else if (studentFilters.sortBy === 'remaining_hours') cmp = a.remaining_hours - b.remaining_hours;
+      else if (studentFilters.sortBy === 'remaining_hours') cmp = (a.remaining_hours || 0) - (b.remaining_hours || 0);
       else if (studentFilters.sortBy === 'class_name') cmp = (a.class_name || '').localeCompare(b.class_name || '');
       return studentFilters.sortOrder === 'asc' ? cmp : -cmp;
     });
@@ -209,13 +220,29 @@ export default function BossDashboard() {
 
   const totalStudentPages = Math.ceil(filteredStudents.length / PAGE_SIZE);
 
+  // 筛选和排序学生（用于学生管理列表）
+  const filteredStudentsMgmt = useMemo(() => {
+    let result = [...allStudents];
+    if (studentMgmtFilters.name) result = result.filter(s => s.name.includes(studentMgmtFilters.name));
+    if (studentMgmtFilters.class_id) result = result.filter(s => s.class_id === studentMgmtFilters.class_id);
+    else if (studentMgmtFilters.class_name) result = result.filter(s => s.class_name === studentMgmtFilters.class_name);
+    result.sort((a, b) => {
+      let cmp = 0;
+      if (studentMgmtFilters.sortBy === 'name') cmp = a.name.localeCompare(b.name);
+      else if (studentMgmtFilters.sortBy === 'remaining_hours') cmp = (a.remaining_hours || 0) - (b.remaining_hours || 0);
+      else if (studentMgmtFilters.sortBy === 'class_name') cmp = (a.class_name || '').localeCompare(b.class_name || '');
+      return studentMgmtFilters.sortOrder === 'asc' ? cmp : -cmp;
+    });
+    return result;
+  }, [allStudents, studentMgmtFilters]);
+
   // 学生管理分页
   const paginatedStudentsMgmt = useMemo(() => {
     const start = (studentMgmtPage - 1) * PAGE_SIZE;
-    return allStudents.slice(start, start + PAGE_SIZE);
-  }, [allStudents, studentMgmtPage]);
+    return filteredStudentsMgmt.slice(start, start + PAGE_SIZE);
+  }, [filteredStudentsMgmt, studentMgmtPage]);
 
-  const totalStudentMgmtPages = Math.ceil(allStudents.length / PAGE_SIZE);
+  const totalStudentMgmtPages = Math.ceil(filteredStudentsMgmt.length / PAGE_SIZE);
 
   // 获取课时记录
   const { data: recordsData, isLoading: recordsLoading } = useQuery({
@@ -265,23 +292,24 @@ export default function BossDashboard() {
 
   // 添加学生
   const handleAddStudent = async () => {
-    if (!newStudent.studentName) { toast.error('请填写学生姓名'); return; }
+    if (!newStudent.name || !newStudent.className) { toast.error('请填写学生姓名和班级'); return; }
     setSubmitting(true);
     try {
-      const { error } = await supabase.from('students').insert({
-        name: newStudent.studentName,
-        class_name: newStudent.className || '',
+      const { error } = await supabase.from('students').insert([{
+        name: newStudent.name,
+        class_name: newStudent.className,
+        class_id: newStudent.classId || null,
         subject: newStudent.subject || '',
         total_hours: parseInt(newStudent.totalHours) || 0,
-        remaining_hours: newStudent.remainingHours ? parseInt(newStudent.remainingHours) : (parseInt(newStudent.totalHours) || 0),
-        alert_threshold: 2,
+        remaining_hours: newStudent.remainingHours ? parseFloat(newStudent.remainingHours) : (parseFloat(newStudent.totalHours) || 0),
+        alert_threshold: parseInt(newStudent.alertThreshold) || 2,
         status: 'active',
         parent_id: newStudent.parentId || null,
-      });
+      }]);
       if (error) throw error;
       toast.success('学生添加成功');
       setAddStudentOpen(false);
-      setNewStudent({ studentName: '', className: '', subject: '', totalHours: '', remainingHours: '', parentId: '' });
+      setNewStudent({ name: '', className: '', subject: '', totalHours: '', remainingHours: '', parentId: '', photoUrl: '', alertThreshold: '0', classId: '' });
       queryClient.invalidateQueries({ queryKey: ['all-students'] });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '添加失败');
@@ -294,10 +322,11 @@ export default function BossDashboard() {
     setEditForm({
       name: student.name,
       className: student.class_name || '',
+      classId: student.class_id || '',
       subject: student.subject || '',
-      totalHours: student.total_hours.toString(),
-      remainingHours: student.remaining_hours.toString(),
-      alertThreshold: student.alert_threshold.toString(),
+      totalHours: (student.total_hours || 0).toString(),
+      remainingHours: (student.remaining_hours || 0).toString(),
+      alertThreshold: (student.alert_threshold || 0).toString(),
       parentId: student.parent_id || '',
       photoUrl: student.photo_url || '',
     });
@@ -311,11 +340,12 @@ export default function BossDashboard() {
     try {
       const { error } = await supabase.from('students').update({
         name: editForm.name,
-        class_name: editForm.className || '',
-        subject: editForm.subject || '',
-        total_hours: parseInt(editForm.totalHours) || 0,
+        class_name: editForm.className,
+        class_id: editForm.classId || null,
+        subject: editForm.subject,
+        total_hours: parseFloat(editForm.totalHours) || 0,
         remaining_hours: parseFloat(editForm.remainingHours) || 0,
-        alert_threshold: parseInt(editForm.alertThreshold) || 2,
+        alert_threshold: parseInt(editForm.alertThreshold) || 0,
         parent_id: editForm.parentId || null,
         photo_url: editForm.photoUrl || null,
       }).eq('id', editStudent.id);
@@ -477,10 +507,15 @@ export default function BossDashboard() {
         default_hours: parseFloat(editClassForm.defaultHours) || 1.0,
       }).eq('id', editClass.id);
       if (error) throw error;
+
+      // Update class_name in students table for the existing class_id or class_name
+      await supabase.from('students').update({ class_name: editClassForm.name }).eq('class_id', editClass.id);
+
       toast.success('班级信息已更新');
       setEditClassOpen(false);
       setEditClass(null);
       queryClient.invalidateQueries({ queryKey: ['all-classes'] });
+      queryClient.invalidateQueries({ queryKey: ['all-students'] }); // 刷新学生数据因为班级名称可能变了
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '更新失败');
     } finally { setSubmitting(false); }
@@ -529,6 +564,8 @@ export default function BossDashboard() {
         return;
       }
 
+      const classIdx = headers.findIndex(h => h.includes('班级'));
+
       const dataLines = lines.length - 1;
       setImportProgress({ importing: true, current: 0, total: dataLines });
 
@@ -538,6 +575,16 @@ export default function BossDashboard() {
         const name = cols[nameIdx];
         const remainingHours = parseFloat(cols[remainIdx]) || 0;
         const totalHours = parseFloat(cols[totalIdx]) || 0;
+        const className = classIdx !== -1 ? cols[classIdx] : undefined;
+        let classId: string | undefined = undefined;
+
+        if (className) {
+          const matchedClass = allClasses.find(c => c.name === className);
+          if (matchedClass) {
+            classId = matchedClass.id;
+          }
+        }
+
         if (!name) {
           setImportProgress(prev => ({ ...prev, current: i }));
           continue;
@@ -545,10 +592,20 @@ export default function BossDashboard() {
 
         const existing = allStudents.find(s => s.name === name);
         if (existing) {
-          await supabase.from('students').update({ remaining_hours: remainingHours, total_hours: totalHours }).eq('id', existing.id);
+          const updateData: any = { remaining_hours: remainingHours, total_hours: totalHours };
+          if (className !== undefined) {
+            updateData.class_name = className;
+            if (classId) updateData.class_id = classId;
+          }
+          await supabase.from('students').update(updateData).eq('id', existing.id);
           updated++;
         } else {
-          await supabase.from('students').insert({ name, remaining_hours: remainingHours, total_hours: totalHours, alert_threshold: 2, status: 'active' });
+          const insertData: any = { name, remaining_hours: remainingHours, total_hours: totalHours, alert_threshold: 2, status: 'active' };
+          if (className !== undefined) {
+            insertData.class_name = className;
+            if (classId) insertData.class_id = classId;
+          }
+          await supabase.from('students').insert(insertData);
           created++;
         }
         setImportProgress(prev => ({ ...prev, current: i }));
@@ -691,9 +748,34 @@ export default function BossDashboard() {
                     <Input placeholder="搜索学生姓名..." value={studentFilters.name} onChange={(e) => { setStudentFilters({ ...studentFilters, name: e.target.value }); setStudentPage(1); }} className="pl-9 text-sm" />
                   </div>
                   <div className="grid grid-cols-3 sm:flex gap-2">
-                    <Select value={studentFilters.class_name || 'all'} onValueChange={(v) => { setStudentFilters({ ...studentFilters, class_name: v === 'all' ? '' : v }); setStudentPage(1); }}>
-                      <SelectTrigger className="w-full sm:w-[120px] text-xs sm:text-sm"><SelectValue placeholder="班级" /></SelectTrigger>
-                      <SelectContent><SelectItem value="all">全部班级</SelectItem>{classNames.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                    <Select value={studentFilters.class_id || 'all'} onValueChange={(v) => {
+                      const selectedClass = allClasses.find(c => c.id === v);
+                      setStudentFilters({ ...studentFilters, class_id: v === 'all' ? '' : v, class_name: selectedClass?.name || '' });
+                      setStudentPage(1);
+                    }}>
+                      <SelectTrigger className="w-full sm:min-w-[140px] text-xs sm:text-sm whitespace-nowrap"><SelectValue placeholder="班级" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">全部班级</SelectItem>
+                        {[...allClasses]
+                          .sort((a, b) => {
+                            const teacherA = a.profiles?.full_name || '';
+                            const teacherB = b.profiles?.full_name || '';
+                            if (teacherA !== teacherB) return teacherA.localeCompare(teacherB);
+                            return a.name.localeCompare(b.name);
+                          })
+                          .map(c => (
+                            <SelectItem key={c.id} value={c.id} className="whitespace-nowrap">
+                              <div className="flex items-center gap-2 whitespace-nowrap">
+                                {c.profiles?.full_name && (
+                                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-[10px] font-medium text-primary">
+                                    {c.profiles.full_name[0]}
+                                  </span>
+                                )}
+                                <span className="truncate">{c.name}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
                     </Select>
                     <Select value={studentFilters.sortBy} onValueChange={(v) => setStudentFilters({ ...studentFilters, sortBy: v as typeof studentFilters.sortBy })}>
                       <SelectTrigger className="w-full sm:w-[100px] text-xs sm:text-sm"><SelectValue placeholder="排序" /></SelectTrigger>
@@ -756,15 +838,45 @@ export default function BossDashboard() {
                         <DialogDescription className="sr-only">填写学生基本信息以录入系统</DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4 mt-4">
-                        <div className="space-y-2"><Label>学生姓名 *</Label><Input placeholder="请输入学生姓名" value={newStudent.studentName} onChange={(e) => setNewStudent({ ...newStudent, studentName: e.target.value })} /></div>
+                        <div className="flex gap-4 mb-4">
+                          <Avatar className="h-16 w-16">
+                            <AvatarImage src={newStudent.photoUrl || ''} />
+                            <AvatarFallback><User className="h-8 w-8" /></AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 space-y-2">
+                            <Label>姓名</Label>
+                            <Input placeholder="输入学生姓名" value={newStudent.name} onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })} />
+                          </div>
+                        </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label>班级</Label>
-                            <Select value={newStudent.className || 'none'} onValueChange={(v) => setNewStudent({ ...newStudent, className: v === 'none' ? '' : v })}>
+                            <Select value={newStudent.classId || 'none'} onValueChange={(v) => {
+                              const selectedClass = allClasses.find(c => c.id === v);
+                              setNewStudent({ ...newStudent, classId: v === 'none' ? '' : v, className: selectedClass?.name || '' });
+                            }}>
                               <SelectTrigger><SelectValue placeholder="选择班级" /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="none">暂不选择</SelectItem>
-                                {allClasses.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+                                {[...allClasses]
+                                  .sort((a, b) => {
+                                    const teacherA = a.profiles?.full_name || '';
+                                    const teacherB = b.profiles?.full_name || '';
+                                    if (teacherA !== teacherB) return teacherA.localeCompare(teacherB);
+                                    return a.name.localeCompare(b.name);
+                                  })
+                                  .map(c => (
+                                    <SelectItem key={c.id} value={c.id} className="whitespace-nowrap">
+                                      <div className="flex items-center gap-2 whitespace-nowrap">
+                                        {c.profiles?.full_name && (
+                                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-[10px] font-medium text-primary">
+                                            {c.profiles.full_name[0]}
+                                          </span>
+                                        )}
+                                        <span className="truncate">{c.name}</span>
+                                      </div>
+                                    </SelectItem>
+                                  ))}
                               </SelectContent>
                             </Select>
                           </div>
@@ -791,6 +903,51 @@ export default function BossDashboard() {
                 </div>
               </CardHeader>
               <CardContent>
+                <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3 mb-4">
+                  <div className="relative flex-1 min-w-0 sm:min-w-[200px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input placeholder="搜索学生姓名..." value={studentMgmtFilters.name} onChange={(e) => { setStudentMgmtFilters({ ...studentMgmtFilters, name: e.target.value }); setStudentMgmtPage(1); }} className="pl-9 text-sm" />
+                  </div>
+                  <div className="grid grid-cols-3 sm:flex gap-2">
+                    <Select value={studentMgmtFilters.class_id || 'all'} onValueChange={(v) => {
+                      const selectedClass = allClasses.find(c => c.id === v);
+                      setStudentMgmtFilters({ ...studentMgmtFilters, class_id: v === 'all' ? '' : v, class_name: selectedClass?.name || '' });
+                      setStudentMgmtPage(1);
+                    }}>
+                      <SelectTrigger className="w-full sm:min-w-[140px] text-xs sm:text-sm whitespace-nowrap"><SelectValue placeholder="班级" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">全部班级</SelectItem>
+                        {[...allClasses]
+                          .sort((a, b) => {
+                            const teacherA = a.profiles?.full_name || '';
+                            const teacherB = b.profiles?.full_name || '';
+                            if (teacherA !== teacherB) return teacherA.localeCompare(teacherB);
+                            return a.name.localeCompare(b.name);
+                          })
+                          .map(c => (
+                            <SelectItem key={c.id} value={c.id} className="whitespace-nowrap">
+                              <div className="flex items-center gap-2 whitespace-nowrap">
+                                {c.profiles?.full_name && (
+                                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-[10px] font-medium text-primary">
+                                    {c.profiles.full_name[0]}
+                                  </span>
+                                )}
+                                <span className="truncate">{c.name}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={studentMgmtFilters.sortBy} onValueChange={(v) => setStudentMgmtFilters({ ...studentMgmtFilters, sortBy: v as typeof studentMgmtFilters.sortBy })}>
+                      <SelectTrigger className="w-full sm:w-[100px] text-xs sm:text-sm"><SelectValue placeholder="排序" /></SelectTrigger>
+                      <SelectContent><SelectItem value="name">姓名</SelectItem><SelectItem value="remaining_hours">课时</SelectItem><SelectItem value="class_name">班级</SelectItem></SelectContent>
+                    </Select>
+                    <Select value={studentMgmtFilters.sortOrder} onValueChange={(v) => setStudentMgmtFilters({ ...studentMgmtFilters, sortOrder: v as 'asc' | 'desc' })}>
+                      <SelectTrigger className="w-full sm:w-[80px] text-xs sm:text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectItem value="asc">升序</SelectItem><SelectItem value="desc">降序</SelectItem></SelectContent>
+                    </Select>
+                  </div>
+                </div>
                 <div className="rounded-lg border">
                   <Table>
                     <TableHeader><TableRow><TableHead>照片</TableHead><TableHead>学生姓名</TableHead><TableHead>班级</TableHead><TableHead>所学内容</TableHead><TableHead>关联家长</TableHead><TableHead>操作</TableHead></TableRow></TableHeader>
@@ -826,7 +983,7 @@ export default function BossDashboard() {
                 </div>
                 {totalStudentMgmtPages > 1 && (
                   <div className="flex items-center justify-between mt-4">
-                    <p className="text-sm text-muted-foreground">共 {allStudents.length} 位学生，第 {studentMgmtPage}/{totalStudentMgmtPages} 页</p>
+                    <p className="text-sm text-muted-foreground">共 {filteredStudentsMgmt.length} 位学生，第 {studentMgmtPage}/{totalStudentMgmtPages} 页</p>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" onClick={() => setStudentMgmtPage(p => Math.max(1, p - 1))} disabled={studentMgmtPage === 1}><ChevronLeft className="w-4 h-4" />上一页</Button>
                       <Button variant="outline" size="sm" onClick={() => setStudentMgmtPage(p => Math.min(totalStudentMgmtPages, p + 1))} disabled={studentMgmtPage === totalStudentMgmtPages}>下一页<ChevronRight className="w-4 h-4" /></Button>
@@ -867,11 +1024,32 @@ export default function BossDashboard() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>班级</Label>
-                      <Select value={editForm.className || 'none'} onValueChange={(v) => setEditForm({ ...editForm, className: v === 'none' ? '' : v })}>
+                      <Select value={editForm.classId || 'none'} onValueChange={(v) => {
+                        const selectedClass = allClasses.find(c => c.id === v);
+                        setEditForm({ ...editForm, classId: v === 'none' ? '' : v, className: selectedClass?.name || '' });
+                      }}>
                         <SelectTrigger><SelectValue placeholder="选择班级" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">暂不选择</SelectItem>
-                          {allClasses.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+                          {[...allClasses]
+                            .sort((a, b) => {
+                              const teacherA = a.profiles?.full_name || '';
+                              const teacherB = b.profiles?.full_name || '';
+                              if (teacherA !== teacherB) return teacherA.localeCompare(teacherB);
+                              return a.name.localeCompare(b.name);
+                            })
+                            .map(c => (
+                              <SelectItem key={c.id} value={c.id} className="whitespace-nowrap">
+                                <div className="flex items-center gap-2 whitespace-nowrap">
+                                  {c.profiles?.full_name && (
+                                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-[10px] font-medium text-primary">
+                                      {c.profiles.full_name[0]}
+                                    </span>
+                                  )}
+                                  <span className="truncate">{c.name}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -944,11 +1122,11 @@ export default function BossDashboard() {
                   <Dialog open={addTeacherOpen} onOpenChange={setAddTeacherOpen}>
                     <DialogTrigger asChild><Button size="sm"><Plus className="w-4 h-4 mr-2" />添加教师</Button></DialogTrigger>
                     <DialogContent className="max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>添加教师账号</DialogTitle>
-                    <DialogDescription className="sr-only">创建新的教师账号</DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 mt-4">
+                      <DialogHeader>
+                        <DialogTitle>添加教师账号</DialogTitle>
+                        <DialogDescription className="sr-only">创建新的教师账号</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 mt-4">
                         <div className="space-y-2"><Label>教师姓名 *</Label><Input placeholder="请输入教师姓名" value={newTeacher.fullName} onChange={(e) => setNewTeacher({ ...newTeacher, fullName: e.target.value })} /></div>
                         <div className="space-y-2"><Label>邮箱（登录账号） *</Label><Input type="email" placeholder="请输入邮箱" value={newTeacher.email} onChange={(e) => setNewTeacher({ ...newTeacher, email: e.target.value })} /></div>
                         <div className="space-y-2"><Label>初始密码 *</Label><Input type="text" placeholder="至少6位" value={newTeacher.password} onChange={(e) => setNewTeacher({ ...newTeacher, password: e.target.value })} /></div>
