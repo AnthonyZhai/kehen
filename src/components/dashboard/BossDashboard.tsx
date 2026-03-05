@@ -292,13 +292,13 @@ export default function BossDashboard() {
 
   // 添加学生
   const handleAddStudent = async () => {
-    if (!newStudent.name || !newStudent.className) { toast.error('请填写学生姓名和班级'); return; }
+    if (!newStudent.name) { toast.error('请填写学生姓名'); return; }
     setSubmitting(true);
     try {
       const { error } = await supabase.from('students').insert([{
         name: newStudent.name,
         class_name: newStudent.className,
-        class_id: newStudent.classId || null,
+        ...(newStudent.classId ? { class_id: newStudent.classId } : {}),
         subject: newStudent.subject || '',
         total_hours: parseInt(newStudent.totalHours) || 0,
         remaining_hours: newStudent.remainingHours ? parseFloat(newStudent.remainingHours) : (parseFloat(newStudent.totalHours) || 0),
@@ -338,24 +338,31 @@ export default function BossDashboard() {
     if (!editStudent || !editForm.name) { toast.error('请填写学生姓名'); return; }
     setSubmitting(true);
     try {
-      const { error } = await supabase.from('students').update({
+      const updateData: Record<string, any> = {
         name: editForm.name,
-        class_name: editForm.className,
-        class_id: editForm.classId || null,
-        subject: editForm.subject,
+        class_name: editForm.className || null,
+        subject: editForm.subject || null,
         total_hours: parseFloat(editForm.totalHours) || 0,
         remaining_hours: parseFloat(editForm.remainingHours) || 0,
         alert_threshold: parseInt(editForm.alertThreshold) || 0,
         parent_id: editForm.parentId || null,
         photo_url: editForm.photoUrl || null,
-      }).eq('id', editStudent.id);
-      if (error) throw error;
+      };
+      if (editForm.classId) {
+        updateData.class_id = editForm.classId;
+      }
+      const { error } = await supabase.from('students').update(updateData).eq('id', editStudent.id);
+      if (error) {
+        console.error('Student update error:', error);
+        throw new Error(error.message || JSON.stringify(error));
+      }
       toast.success('学生信息已更新');
       setEditStudentOpen(false);
       setEditStudent(null);
       queryClient.invalidateQueries({ queryKey: ['all-students'] });
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : '更新失败');
+    } catch (error: any) {
+      console.error('handleSaveStudent catch:', error);
+      toast.error(error?.message || '更新失败');
     } finally { setSubmitting(false); }
   };
 
@@ -508,8 +515,15 @@ export default function BossDashboard() {
       }).eq('id', editClass.id);
       if (error) throw error;
 
-      // Update class_name in students table for the existing class_id or class_name
-      await supabase.from('students').update({ class_name: editClassForm.name }).eq('class_id', editClass.id);
+      // Update class_name in students table - try class_id first, fallback to old class_name
+      try {
+        await supabase.from('students').update({ class_name: editClassForm.name }).eq('class_id', editClass.id);
+      } catch {
+        // class_id column may not exist yet, fallback to class_name match
+        if (editClass.name !== editClassForm.name) {
+          await supabase.from('students').update({ class_name: editClassForm.name }).eq('class_name', editClass.name);
+        }
+      }
 
       toast.success('班级信息已更新');
       setEditClassOpen(false);
