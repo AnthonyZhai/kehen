@@ -30,6 +30,7 @@ interface Student {
   alert_threshold: number;
   photo_url: string | null;
   parent_id: string | null;
+  status: string | null;
 }
 
 interface ClassRecord {
@@ -109,7 +110,7 @@ export default function BossDashboard() {
 
   const [editStudent, setEditStudent] = useState<Student | null>(null);
   const [editForm, setEditForm] = useState({
-    name: '', className: '', subject: '', totalHours: '', remainingHours: '', alertThreshold: '', parentId: '', photoUrl: '', classId: '',
+    name: '', className: '', subject: '', totalHours: '', remainingHours: '', alertThreshold: '', parentId: '', photoUrl: '', classId: '', status: 'active',
   });
 
   const [studentMgmtFilters, setStudentMgmtFilters] = useState({
@@ -329,6 +330,7 @@ export default function BossDashboard() {
       alertThreshold: (student.alert_threshold || 0).toString(),
       parentId: student.parent_id || '',
       photoUrl: student.photo_url || '',
+      status: student.status || 'active',
     });
     setEditStudentOpen(true);
   };
@@ -340,17 +342,16 @@ export default function BossDashboard() {
     try {
       const updateData: Record<string, any> = {
         name: editForm.name,
-        class_name: editForm.className || null,
+        class_name: editForm.classId ? editForm.className : null,
+        class_id: editForm.classId || null,
         subject: editForm.subject || null,
         total_hours: parseFloat(editForm.totalHours) || 0,
         remaining_hours: parseFloat(editForm.remainingHours) || 0,
         alert_threshold: parseInt(editForm.alertThreshold) || 0,
         parent_id: editForm.parentId || null,
         photo_url: editForm.photoUrl || null,
+        status: editForm.status || 'active',
       };
-      if (editForm.classId) {
-        updateData.class_id = editForm.classId;
-      }
       const { error } = await supabase.from('students').update(updateData).eq('id', editStudent.id);
       if (error) {
         console.error('Student update error:', error);
@@ -976,7 +977,13 @@ export default function BossDashboard() {
                               <AvatarFallback><User className="h-5 w-5" /></AvatarFallback>
                             </Avatar>
                           </TableCell>
-                          <TableCell className="font-medium">{s.name}</TableCell>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-1.5">
+                              {s.name}
+                              {s.status === 'leave' && <Badge variant="outline" className="text-[10px] px-1 py-0 border-yellow-400 text-yellow-600">请假</Badge>}
+                              {s.status === 'inactive' && <Badge variant="outline" className="text-[10px] px-1 py-0 border-gray-400 text-gray-500">已退</Badge>}
+                            </div>
+                          </TableCell>
                           <TableCell>{s.class_name || '-'}</TableCell>
                           <TableCell>{s.subject || '-'}</TableCell>
                           <TableCell>{getParentName(s.parent_id)}</TableCell>
@@ -1073,7 +1080,20 @@ export default function BossDashboard() {
                     <div className="space-y-2"><Label>总课时</Label><Input type="number" value={editForm.totalHours} onChange={(e) => setEditForm({ ...editForm, totalHours: e.target.value })} /></div>
                     <div className="space-y-2"><Label>剩余课时</Label><Input type="number" step="0.5" value={editForm.remainingHours} onChange={(e) => setEditForm({ ...editForm, remainingHours: e.target.value })} /></div>
                   </div>
-                  <div className="space-y-2"><Label>续费预警阈值</Label><Input type="number" value={editForm.alertThreshold} onChange={(e) => setEditForm({ ...editForm, alertThreshold: e.target.value })} /></div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label>续费预警阈值</Label><Input type="number" value={editForm.alertThreshold} onChange={(e) => setEditForm({ ...editForm, alertThreshold: e.target.value })} /></div>
+                    <div className="space-y-2">
+                      <Label>学生状态</Label>
+                      <Select value={editForm.status} onValueChange={(v) => setEditForm({ ...editForm, status: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active">在读</SelectItem>
+                          <SelectItem value="leave">长期请假</SelectItem>
+                          <SelectItem value="inactive">已退出</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                   <div className="space-y-2">
                     <Label>关联家长</Label>
                     <Select value={editForm.parentId || 'none'} onValueChange={(v) => setEditForm({ ...editForm, parentId: v === 'none' ? '' : v })}>

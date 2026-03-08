@@ -16,6 +16,7 @@ interface Student {
   id: string;
   name: string;
   class_name: string;
+  class_id: string | null;
   remaining_hours: number;
 }
 
@@ -50,30 +51,32 @@ export default function TeacherDashboard() {
     enabled: !!profile?.id,
   });
 
-  // 获取学生列表
+  // 获取学生列表 — 只获取属于当前老师班级的学生
+  const teacherClassIds = useMemo(() => classes.map(c => c.id), [classes]);
   const { data: allStudents = [] } = useQuery({
-    queryKey: ['students'],
+    queryKey: ['teacher-students', profile?.id, teacherClassIds],
     queryFn: async () => {
+      if (teacherClassIds.length === 0) return [];
       const { data, error } = await supabase
         .from('students')
         .select('*')
         .eq('status', 'active')
+        .in('class_id', teacherClassIds)
         .order('name');
       if (error) throw error;
       return data as Student[];
     },
+    enabled: !!profile?.id && teacherClassIds.length > 0,
   });
 
-  // 根据选择的班级过滤学生
+  // 根据选择的班级过滤学生（使用 class_id 精确匹配，避免同名班级串数据）
   const students = useMemo(() => {
     if (selectedClassId === 'all') {
-      const teacherClassNames = classes.map(c => c.name);
-      return allStudents.filter(s => teacherClassNames.includes(s.class_name));
+      // allStudents 已经通过 .in('class_id', teacherClassIds) 过滤过了
+      return allStudents;
     }
-    const selectedClass = classes.find(c => c.id === selectedClassId);
-    if (!selectedClass) return [];
-    return allStudents.filter(s => s.class_name === selectedClass.name);
-  }, [allStudents, classes, selectedClassId]);
+    return allStudents.filter(s => s.class_id === selectedClassId);
+  }, [allStudents, selectedClassId]);
 
   // 自动选择当前时间的班级
   useEffect(() => {
@@ -98,15 +101,92 @@ export default function TeacherDashboard() {
     }
   }, [classes]);
 
-  // 上传照片
-  const uploadPhoto = async (file: File): Promise<string> => {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+  // 压缩照片并添加时间戳水印
+  const processPhoto = (file: File): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX_W = 800;
+        const MAX_H = 600;
+
+        let w = img.width;
+        let h = img.height;
+
+        // 等比缩放到 800x600 以内
+        if (w > MAX_W || h > MAX_H) {
+          const ratio = Math.min(MAX_W / w, MAX_H / h);
+          w = Math.round(w * ratio);
+          h = Math.round(h * ratio);
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d')!;
+
+        // 绘制缩放后的图片
+        ctx.drawImage(img, 0, 0, w, h);
+
+        // 右下角添加时间戳水印
+        const now = new Date();
+        const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+        const stampText = `${dateStr} ${timeStr}`;
+
+        const fontSize = Math.max(14, Math.round(w * 0.025));
+        ctx.font = `bold ${fontSize}px sans-serif`;
+        const textMetrics = ctx.measureText(stampText);
+        const textW = textMetrics.width;
+        const textH = fontSize;
+        const padding = 6;
+        const margin = 10;
+
+        // 半透明深色背景
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.beginPath();
+        const bgX = w - textW - padding * 2 - margin;
+        const bgY = h - textH - padding * 2 - margin;
+        const bgW = textW + padding * 2;
+        const bgH = textH + padding * 2;
+        const radius = 4;
+        ctx.moveTo(bgX + radius, bgY);
+        ctx.lineTo(bgX + bgW - radius, bgY);
+        ctx.quadraticCurveTo(bgX + bgW, bgY, bgX + bgW, bgY + radius);
+        ctx.lineTo(bgX + bgW, bgY + bgH - radius);
+        ctx.quadraticCurveTo(bgX + bgW, bgY + bgH, bgX + bgW - radius, bgY + bgH);
+        ctx.lineTo(bgX + radius, bgY + bgH);
+        ctx.quadraticCurveTo(bgX, bgY + bgH, bgX, bgY + bgH - radius);
+        ctx.lineTo(bgX, bgY + radius);
+        ctx.quadraticCurveTo(bgX, bgY, bgX + radius, bgY);
+        ctx.fill();
+
+        // 白色文字
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.textBaseline = 'top';
+        ctx.fillText(stampText, bgX + padding, bgY + padding);
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error('照片处理失败'));
+          },
+          'image/jpeg',
+          0.85
+        );
+      };
+      img.onerror = () => reject(new Error('照片加载失败'));
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
+  // 上传照片（接受原始 File 或处理后的 Blob）
+  const uploadPhoto = async (blob: Blob): Promise<string> => {
+    const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
     const filePath = `class-photos/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from('class_photos')
-      .upload(filePath, file);
+      .upload(filePath, blob, { contentType: 'image/jpeg' });
 
     if (uploadError) throw uploadError;
 
@@ -117,12 +197,16 @@ export default function TeacherDashboard() {
     return publicUrl;
   };
 
-  // 拍照处理
+  // 拍照处理：先压缩+加水印，再提交
   const handleCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Directly trigger submission upon capturing photo
-      submitCheckin.mutate(file);
+      try {
+        const processedBlob = await processPhoto(file);
+        submitCheckin.mutate(processedBlob);
+      } catch (err) {
+        toast.error('照片处理失败，请重试');
+      }
     }
   };
 
@@ -139,13 +223,13 @@ export default function TeacherDashboard() {
 
   // 提交签到
   const submitCheckin = useMutation({
-    mutationFn: async (capturedFile: File) => {
-      if (!capturedFile || checkedStudents.size === 0) {
+    mutationFn: async (capturedBlob: Blob) => {
+      if (!capturedBlob || checkedStudents.size === 0) {
         throw new Error('请选择签到学生');
       }
 
       setSubmitting(true);
-      const uploadedUrl = await uploadPhoto(capturedFile);
+      const uploadedUrl = await uploadPhoto(capturedBlob);
       const classDate = new Date().toISOString();
 
       const selectedClass = classes.find(c => c.id === selectedClassId);
