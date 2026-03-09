@@ -75,6 +75,7 @@ export default function BossDashboard() {
   const queryClient = useQueryClient();
   const [studentPage, setStudentPage] = useState(1);
   const [recordPage, setRecordPage] = useState(1);
+  const [recordSearch, setRecordSearch] = useState('');
   const [studentMgmtPage, setStudentMgmtPage] = useState(1);
   const [refreshing, setRefreshing] = useState(false);
   const [addStudentOpen, setAddStudentOpen] = useState(false);
@@ -247,14 +248,28 @@ export default function BossDashboard() {
 
   // 获取课时记录
   const { data: recordsData, isLoading: recordsLoading } = useQuery({
-    queryKey: ['all-records', recordPage],
+    queryKey: ['all-records', recordPage, recordSearch],
     queryFn: async () => {
       const from = (recordPage - 1) * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
-      const { data, error, count } = await supabase
+      let query = supabase
         .from('class_records')
-        .select('*, students(name, class_name), profiles(full_name)', { count: 'exact' })
+        .select('*, students(name, class_name), profiles(full_name)', { count: 'exact' });
+
+      // 如果有搜索关键词，先在客户端匹配学生名获取 student_id 列表
+      if (recordSearch.trim()) {
+        const matchedIds = allStudents
+          .filter(s => s.name.includes(recordSearch.trim()))
+          .map(s => s.id);
+        if (matchedIds.length === 0) {
+          return { records: [] as ClassRecord[], total: 0 };
+        }
+        query = query.in('student_id', matchedIds);
+      }
+
+      const { data, error, count } = await query
         .order('class_date', { ascending: false })
+        .order('id', { ascending: false })
         .range(from, to);
       if (error) throw error;
       return { records: data as ClassRecord[], total: count || 0 };
@@ -1113,8 +1128,19 @@ export default function BossDashboard() {
           {/* 签到记录 */}
           <TabsContent value="records">
             <Card>
-              <CardHeader className="pb-3"><div className="flex items-center justify-between"><CardTitle>签到记录</CardTitle><Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing}><RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />刷新</Button></div></CardHeader>
+              <CardHeader className="pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <CardTitle className="text-base sm:text-lg">签到记录</CardTitle>
+                  <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing} className="text-xs sm:text-sm"><RefreshCw className={`w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 ${refreshing ? 'animate-spin' : ''}`} />刷新</Button>
+                </div>
+              </CardHeader>
               <CardContent>
+                <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3 mb-4">
+                  <div className="relative flex-1 min-w-0 sm:min-w-[200px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input placeholder="搜索学生姓名..." value={recordSearch} onChange={(e) => { setRecordSearch(e.target.value); setRecordPage(1); }} className="pl-9 text-sm" />
+                  </div>
+                </div>
                 <div className="rounded-lg border">
                   <Table>
                     <TableHeader><TableRow><TableHead>学生姓名</TableHead><TableHead>班级</TableHead><TableHead>签到时间</TableHead><TableHead>消耗课时</TableHead><TableHead>教师</TableHead><TableHead>照片</TableHead></TableRow></TableHeader>
