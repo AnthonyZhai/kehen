@@ -308,21 +308,32 @@ export default function TeacherDashboard() {
               ))}
           </SelectContent>
         </Select>
+        {selectedClassId === 'all' && (
+          <p className="mt-1.5 text-xs text-destructive text-center">
+            ⚠️ 请先选择具体班级，否则课时将按默认 1 课时计算
+          </p>
+        )}
       </div>
 
       <button
         onClick={() => {
+          if (selectedClassId === 'all') {
+            toast.error('请先选择具体班级再签到');
+            return;
+          }
           if (checkedStudents.size === 0) {
             toast.error('请至少选择一名学生');
             return;
           }
           setConfirmOpen(true);
         }}
-        disabled={submitting}
+        disabled={submitting || selectedClassId === 'all'}
         className="w-40 h-40 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground flex flex-col items-center justify-center shadow-2xl shadow-primary/30 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:pointer-events-none mb-8"
       >
         <Camera className="w-16 h-16 mb-2" />
-        <span className="text-lg font-medium">{submitting ? '提交中...' : '一键签到'}</span>
+        <span className="text-lg font-medium">
+          {submitting ? '提交中...' : selectedClassId === 'all' ? '请先选班级' : '一键签到'}
+        </span>
       </button>
 
       <div className="w-full max-w-md">

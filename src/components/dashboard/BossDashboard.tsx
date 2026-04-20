@@ -13,7 +13,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { RefreshCw, Download, AlertTriangle, ChevronLeft, ChevronRight, Search, Users, Clock, Plus, GraduationCap, UserPlus, Pencil, Upload, User, FileText, Layout, Trash2 } from 'lucide-react';
+import { RefreshCw, Download, AlertTriangle, ChevronLeft, ChevronRight, Search, Users, Clock, Plus, GraduationCap, UserPlus, Pencil, Upload, User, FileText, Layout, Trash2, CalendarRange } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import WebsiteContentManager from './WebsiteContentManager';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -69,6 +70,16 @@ interface TrialApplication {
   created_at: string;
 }
 
+interface RenewalRecord {
+  id: string;
+  hours_added: number;
+  previous_remaining: number;
+  previous_total: number;
+  renewed_at: string;
+  notes: string | null;
+  profiles: { full_name: string } | null;
+}
+
 const PAGE_SIZE = 20;
 
 export default function BossDashboard() {
@@ -76,6 +87,12 @@ export default function BossDashboard() {
   const [studentPage, setStudentPage] = useState(1);
   const [recordPage, setRecordPage] = useState(1);
   const [recordSearch, setRecordSearch] = useState('');
+  const [recordClassId, setRecordClassId] = useState('');
+  const [selectedRecordIds, setSelectedRecordIds] = useState<Set<string>>(new Set());
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportDateFrom, setExportDateFrom] = useState('');
+  const [exportDateTo, setExportDateTo] = useState('');
+  const [exporting, setExporting] = useState(false);
   const [studentMgmtPage, setStudentMgmtPage] = useState(1);
   const [refreshing, setRefreshing] = useState(false);
   const [addStudentOpen, setAddStudentOpen] = useState(false);
@@ -96,6 +113,10 @@ export default function BossDashboard() {
   const [renewalOpen, setRenewalOpen] = useState(false);
   const [renewalStudent, setRenewalStudent] = useState<Student | null>(null);
   const [renewalForm, setRenewalForm] = useState({ hoursToAdd: '', notes: '' });
+
+  // 续费历史弹窗状态
+  const [renewalHistoryOpen, setRenewalHistoryOpen] = useState(false);
+  const [renewalHistoryStudent, setRenewalHistoryStudent] = useState<Student | null>(null);
 
   const [studentFilters, setStudentFilters] = useState({
     name: '',
@@ -248,7 +269,7 @@ export default function BossDashboard() {
 
   // 获取课时记录
   const { data: recordsData, isLoading: recordsLoading } = useQuery({
-    queryKey: ['all-records', recordPage, recordSearch],
+    queryKey: ['all-records', recordPage, recordSearch, recordClassId],
     queryFn: async () => {
       const from = (recordPage - 1) * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
@@ -256,14 +277,21 @@ export default function BossDashboard() {
         .from('class_records')
         .select('*, students(name, class_name), profiles(full_name)', { count: 'exact' });
 
-      // 如果有搜索关键词，先在客户端匹配学生名获取 student_id 列表
+      // 按班级筛选：取出该班级的学生 ID
+      let filterIds: string[] | null = null;
+      if (recordClassId) {
+        filterIds = allStudents.filter(s => s.class_id === recordClassId).map(s => s.id);
+        if (filterIds.length === 0) return { records: [] as ClassRecord[], total: 0 };
+        query = query.in('student_id', filterIds);
+      }
+
+      // 按姓名搜索
       if (recordSearch.trim()) {
+        const base = filterIds ?? allStudents.map(s => s.id);
         const matchedIds = allStudents
-          .filter(s => s.name.includes(recordSearch.trim()))
+          .filter(s => s.name.includes(recordSearch.trim()) && base.includes(s.id))
           .map(s => s.id);
-        if (matchedIds.length === 0) {
-          return { records: [] as ClassRecord[], total: 0 };
-        }
+        if (matchedIds.length === 0) return { records: [] as ClassRecord[], total: 0 };
         query = query.in('student_id', matchedIds);
       }
 
@@ -282,6 +310,21 @@ export default function BossDashboard() {
 
   const lowHourStudents = useMemo(() => allStudents.filter(s => s.remaining_hours <= s.alert_threshold), [allStudents]);
   const classNames = useMemo(() => [...new Set(allStudents.map(s => s.class_name).filter(Boolean))], [allStudents]);
+
+  // 查询某学生的续费记录
+  const { data: renewalHistoryData = [], isLoading: renewalHistoryLoading } = useQuery({
+    queryKey: ['renewal-history', renewalHistoryStudent?.id],
+    enabled: !!renewalHistoryStudent,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('renewal_records')
+        .select('*, profiles(full_name)')
+        .eq('student_id', renewalHistoryStudent!.id)
+        .order('renewed_at', { ascending: false });
+      if (error) throw error;
+      return data as RenewalRecord[];
+    },
+  });
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -355,13 +398,13 @@ export default function BossDashboard() {
     if (!editStudent || !editForm.name) { toast.error('请填写学生姓名'); return; }
     setSubmitting(true);
     try {
+      // 注意：remaining_hours 不在此处更新，由数据库触发器（上课签到）和续费功能自动维护
       const updateData: Record<string, any> = {
         name: editForm.name,
         class_name: editForm.classId ? editForm.className : null,
         class_id: editForm.classId || null,
         subject: editForm.subject || null,
         total_hours: parseFloat(editForm.totalHours) || 0,
-        remaining_hours: parseFloat(editForm.remainingHours) || 0,
         alert_threshold: parseInt(editForm.alertThreshold) || 0,
         parent_id: editForm.parentId || null,
         photo_url: editForm.photoUrl || null,
@@ -649,6 +692,160 @@ export default function BossDashboard() {
       setImportProgress({ importing: false, current: 0, total: 0 });
       if (csvInputRef.current) csvInputRef.current.value = '';
     }
+  };
+
+  // 删除签到记录（DB 触发器会自动把课时加回去）
+  const handleDeleteRecord = async (record: ClassRecord) => {
+    if (!window.confirm(`确定要删除「${record.students.name}」在 ${format(new Date(record.class_date), 'MM/dd HH:mm')} 的签到记录（${record.hours_consumed} 课时）？\n删除后该课时将自动归还。`)) return;
+    try {
+      const { error } = await supabase.from('class_records').delete().eq('id', record.id);
+      if (error) throw error;
+      toast.success('签到记录已删除，课时已自动归还');
+      queryClient.invalidateQueries({ queryKey: ['all-records'] });
+      queryClient.invalidateQueries({ queryKey: ['all-students'] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '删除失败');
+    }
+  };
+
+  // 批量删除选中的签到记录
+  const handleBatchDeleteRecords = async () => {
+    if (selectedRecordIds.size === 0) return;
+    if (!window.confirm(`确定要批量删除选中的 ${selectedRecordIds.size} 条签到记录？\n删除后对应课时将自动归还给各学生。`)) return;
+    try {
+      const ids = Array.from(selectedRecordIds);
+      const { error } = await supabase.from('class_records').delete().in('id', ids);
+      if (error) throw error;
+      toast.success(`已删除 ${ids.length} 条签到记录，课时已自动归还`);
+      setSelectedRecordIds(new Set());
+      queryClient.invalidateQueries({ queryKey: ['all-records'] });
+      queryClient.invalidateQueries({ queryKey: ['all-students'] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '批量删除失败');
+    }
+  };
+
+  // 按时段导出签到记录为 CSV（含课后剩余课时）
+  const handleExportRecords = async () => {
+    if (!exportDateFrom || !exportDateTo) { toast.error('请选择起止日期'); return; }
+    setExporting(true);
+    try {
+      // ── 1. 获取导出范围内的签到记录 ──
+      let query = supabase
+        .from('class_records')
+        .select('*, students(name, class_name), profiles(full_name)')
+        .gte('class_date', new Date(exportDateFrom).toISOString())
+        .lte('class_date', new Date(exportDateTo + 'T23:59:59').toISOString())
+        .order('class_date', { ascending: false });
+
+      if (recordClassId) {
+        const ids = allStudents.filter(s => s.class_id === recordClassId).map(s => s.id);
+        if (ids.length > 0) query = query.in('student_id', ids);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      if (!data || data.length === 0) { toast.error('该时段内没有签到记录'); return; }
+
+      // ── 2. 收集涉及的学生 ID，批量拉取全量签到记录和续费记录 ──
+      const studentIds = [...new Set((data as ClassRecord[]).map(r => r.student_id))];
+
+      const [{ data: allClassRecs }, { data: allRenewals }] = await Promise.all([
+        supabase.from('class_records').select('id, student_id, class_date, hours_consumed').in('student_id', studentIds),
+        supabase.from('renewal_records').select('student_id, renewed_at, hours_added').in('student_id', studentIds),
+      ]);
+
+      // ── 3. 为每条记录反推「课后剩余课时」 ──
+      // 公式：当前余额 + 此课之后消耗的课时 - 此课之后续费的课时
+      const computeRemainingAfter = (record: ClassRecord): number | string => {
+        const student = allStudents.find(s => s.id === record.student_id);
+        if (!student) return '-';
+        const d = new Date(record.class_date);
+
+        const consumedAfter = (allClassRecs || [])
+          .filter(r =>
+            r.student_id === record.student_id &&
+            (new Date(r.class_date) > d || (r.class_date === record.class_date && r.id > record.id))
+          )
+          .reduce((sum: number, r: any) => sum + (Number(r.hours_consumed) || 0), 0);
+
+        const renewedAfter = (allRenewals || [])
+          .filter(r => r.student_id === record.student_id && new Date(r.renewed_at) > d)
+          .reduce((sum: number, r: any) => sum + (Number(r.hours_added) || 0), 0);
+
+        return student.remaining_hours + consumedAfter - renewedAfter;
+      };
+
+      const rows = (data as ClassRecord[]).map(r => ({
+        '学生姓名': r.students.name,
+        '班级': r.students.class_name || '-',
+        '签到时间': format(new Date(r.class_date), 'yyyy/MM/dd HH:mm'),
+        '消耗课时': r.hours_consumed,
+        '课后剩余课时': computeRemainingAfter(r),
+        '教师': r.profiles.full_name,
+      }));
+      const headers = Object.keys(rows[0]);
+      const csv = [headers.join(','), ...rows.map(row => headers.map(h => row[h as keyof typeof row]).join(','))].join('\n');
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `签到记录_${exportDateFrom}_至_${exportDateTo}.csv`;
+      link.click();
+      toast.success(`已导出 ${data.length} 条记录`);
+      setExportOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '导出失败');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  // 删除续费记录（需要手动回扣课时，因为续费没有 DB 触发器）
+  const handleDeleteRenewal = async (record: RenewalRecord) => {
+    if (!renewalHistoryStudent) return;
+    if (!window.confirm(
+      `确定要删除该续费记录？\n` +
+      `续费课时：${record.hours_added}，续费时间：${format(new Date(record.renewed_at), 'yyyy/MM/dd')}\n` +
+      `删除后将从学生总课时和剩余课时中各扣除 ${record.hours_added} 课时。`
+    )) return;
+    try {
+      // 先获取学生当前课时（避免纺件覆盖）
+      const { data: studentData, error: fetchErr } = await supabase
+        .from('students')
+        .select('remaining_hours, total_hours')
+        .eq('id', renewalHistoryStudent.id)
+        .single();
+      if (fetchErr) throw fetchErr;
+
+      // 删除续费记录
+      const { error: deleteErr } = await supabase
+        .from('renewal_records')
+        .delete()
+        .eq('id', record.id);
+      if (deleteErr) throw deleteErr;
+
+      // 同步回扣学生课时
+      const { error: updateErr } = await supabase
+        .from('students')
+        .update({
+          total_hours: (studentData.total_hours || 0) - record.hours_added,
+          remaining_hours: (studentData.remaining_hours || 0) - record.hours_added,
+        })
+        .eq('id', renewalHistoryStudent.id);
+      if (updateErr) throw updateErr;
+
+      toast.success(`已删除续费记录，已回扣 ${record.hours_added} 课时`);
+      queryClient.invalidateQueries({ queryKey: ['renewal-history', renewalHistoryStudent.id] });
+      queryClient.invalidateQueries({ queryKey: ['all-students'] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '删除失败');
+    }
+  };
+
+  // 打开续费记录弹窗
+  const openRenewalHistory = (student: Student) => {
+    setRenewalHistoryStudent(student);
+    setRenewalHistoryOpen(true);
   };
 
   // 续费
@@ -1004,6 +1201,9 @@ export default function BossDashboard() {
                           <TableCell>{getParentName(s.parent_id)}</TableCell>
                           <TableCell>
                             <div className="flex gap-1">
+                              <Button variant="ghost" size="sm" title="续费记录" onClick={(e) => { e.stopPropagation(); openRenewalHistory(s); }}>
+                                <FileText className="w-4 h-4" />
+                              </Button>
                               <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); openEditStudent(s); }}>
                                 <Pencil className="w-4 h-4" />
                               </Button>
@@ -1093,7 +1293,13 @@ export default function BossDashboard() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2"><Label>总课时</Label><Input type="number" value={editForm.totalHours} onChange={(e) => setEditForm({ ...editForm, totalHours: e.target.value })} /></div>
-                    <div className="space-y-2"><Label>剩余课时</Label><Input type="number" step="0.5" value={editForm.remainingHours} onChange={(e) => setEditForm({ ...editForm, remainingHours: e.target.value })} /></div>
+                    <div className="space-y-2">
+                      <Label>剩余课时</Label>
+                      <div className="flex items-center h-10 rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground select-none">
+                        {editForm.remainingHours}
+                      </div>
+                      <p className="text-xs text-muted-foreground">由签到触发器自动维护，续费请使用「续费」功能</p>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2"><Label>续费预警阈值</Label><Input type="number" value={editForm.alertThreshold} onChange={(e) => setEditForm({ ...editForm, alertThreshold: e.target.value })} /></div>
@@ -1125,36 +1331,140 @@ export default function BossDashboard() {
             </Dialog>
           </TabsContent>
 
+          {/* 续费历史 Dialog */}
+          <Dialog open={renewalHistoryOpen} onOpenChange={setRenewalHistoryOpen}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>续费记录 — {renewalHistoryStudent?.name}</DialogTitle>
+                <DialogDescription className="sr-only">查看该学生的历史续费明细</DialogDescription>
+              </DialogHeader>
+              <div className="mt-2 max-h-[60vh] overflow-y-auto">
+                {renewalHistoryLoading ? (
+                  <p className="text-center py-8 text-muted-foreground text-sm">加载中...</p>
+                ) : renewalHistoryData.length === 0 ? (
+                  <p className="text-center py-8 text-muted-foreground text-sm">暂无续费记录</p>
+                ) : (
+                  <div className="space-y-2">
+                    {renewalHistoryData.map((r) => (
+                      <div key={r.id} className="flex items-start justify-between rounded-lg border p-3 text-sm gap-3">
+                        <div className="space-y-0.5 flex-1 min-w-0">
+                          <p className="font-medium text-green-600">+ {r.hours_added} 课时</p>
+                          <p className="text-xs text-muted-foreground">
+                            续费前剩余 {r.previous_remaining} 课时，总课时 {r.previous_total}
+                          </p>
+                          {r.notes && <p className="text-xs text-muted-foreground">备注：{r.notes}</p>}
+                          {r.profiles && <p className="text-xs text-muted-foreground">操作人：{r.profiles.full_name}</p>}
+                        </div>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            {format(new Date(r.renewed_at), 'yyyy/MM/dd HH:mm', { locale: zhCN })}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDeleteRenewal(r)}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+
           {/* 签到记录 */}
           <TabsContent value="records">
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <CardTitle className="text-base sm:text-lg">签到记录</CardTitle>
-                  <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing} className="text-xs sm:text-sm"><RefreshCw className={`w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 ${refreshing ? 'animate-spin' : ''}`} />刷新</Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setExportOpen(true)} className="text-xs sm:text-sm">
+                      <CalendarRange className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />导出时段
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing} className="text-xs sm:text-sm">
+                      <RefreshCw className={`w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 ${refreshing ? 'animate-spin' : ''}`} />刷新
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3 mb-4">
-                  <div className="relative flex-1 min-w-0 sm:min-w-[200px]">
+                {/* 筛选栏 */}
+                <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3 mb-3">
+                  <div className="relative flex-1 min-w-0 sm:min-w-[180px]">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input placeholder="搜索学生姓名..." value={recordSearch} onChange={(e) => { setRecordSearch(e.target.value); setRecordPage(1); }} className="pl-9 text-sm" />
+                    <Input placeholder="搜索学生姓名..." value={recordSearch} onChange={(e) => { setRecordSearch(e.target.value); setRecordPage(1); setSelectedRecordIds(new Set()); }} className="pl-9 text-sm" />
                   </div>
+                  <Select value={recordClassId || 'all'} onValueChange={(v) => { setRecordClassId(v === 'all' ? '' : v); setRecordPage(1); setSelectedRecordIds(new Set()); }}>
+                    <SelectTrigger className="w-full sm:w-[160px] text-xs sm:text-sm"><SelectValue placeholder="按班级筛选" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">全部班级</SelectItem>
+                      {[...allClasses].sort((a, b) => a.name.localeCompare(b.name)).map(c => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+
+                {/* 批量操作提示栏 */}
+                {selectedRecordIds.size > 0 && (
+                  <div className="flex items-center justify-between rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-2 mb-3">
+                    <span className="text-sm font-medium text-destructive">已选中 {selectedRecordIds.size} 条记录</span>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => setSelectedRecordIds(new Set())} className="text-xs">取消选择</Button>
+                      <Button size="sm" variant="destructive" onClick={handleBatchDeleteRecords} className="text-xs">
+                        <Trash2 className="w-3 h-3 mr-1" />批量删除
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="rounded-lg border">
                   <Table>
-                    <TableHeader><TableRow><TableHead>学生姓名</TableHead><TableHead>班级</TableHead><TableHead>签到时间</TableHead><TableHead>消耗课时</TableHead><TableHead>教师</TableHead><TableHead>照片</TableHead></TableRow></TableHeader>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-10">
+                          <Checkbox
+                            checked={records.length > 0 && records.every(r => selectedRecordIds.has(r.id))}
+                            onCheckedChange={(checked) => {
+                              if (checked) setSelectedRecordIds(new Set(records.map(r => r.id)));
+                              else setSelectedRecordIds(new Set());
+                            }}
+                          />
+                        </TableHead>
+                        <TableHead>学生姓名</TableHead><TableHead>班级</TableHead><TableHead>签到时间</TableHead><TableHead>消耗课时</TableHead><TableHead>教师</TableHead><TableHead>照片</TableHead><TableHead>操作</TableHead>
+                      </TableRow>
+                    </TableHeader>
                     <TableBody>
-                      {recordsLoading ? <TableRow><TableCell colSpan={6} className="text-center py-8">加载中...</TableCell></TableRow> :
-                        records.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">暂无签到记录</TableCell></TableRow> :
+                      {recordsLoading ? <TableRow><TableCell colSpan={8} className="text-center py-8">加载中...</TableCell></TableRow> :
+                        records.length === 0 ? <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">暂无签到记录</TableCell></TableRow> :
                           records.map((r) => (
-                            <TableRow key={r.id}>
+                            <TableRow key={r.id} className={selectedRecordIds.has(r.id) ? 'bg-muted/50' : ''}>
+                              <TableCell>
+                                <Checkbox
+                                  checked={selectedRecordIds.has(r.id)}
+                                  onCheckedChange={(checked) => {
+                                    const next = new Set(selectedRecordIds);
+                                    if (checked) next.add(r.id); else next.delete(r.id);
+                                    setSelectedRecordIds(next);
+                                  }}
+                                />
+                              </TableCell>
                               <TableCell className="font-medium">{r.students.name}</TableCell>
                               <TableCell>{r.students.class_name || '-'}</TableCell>
                               <TableCell>{format(new Date(r.class_date), 'MM/dd HH:mm', { locale: zhCN })}</TableCell>
                               <TableCell>{r.hours_consumed}</TableCell>
                               <TableCell>{r.profiles.full_name}</TableCell>
                               <TableCell>{r.photo_url ? <a href={r.photo_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-sm">查看</a> : '-'}</TableCell>
+                              <TableCell>
+                                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteRecord(r)}>
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </TableCell>
                             </TableRow>
                           ))}
                     </TableBody>
@@ -1171,6 +1481,31 @@ export default function BossDashboard() {
                 )}
               </CardContent>
             </Card>
+
+            {/* 时段导出 Dialog */}
+            <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+              <DialogContent className="max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>导出签到记录</DialogTitle>
+                  <DialogDescription>选择时间范围{recordClassId ? `（当前筛选班级：${allClasses.find(c => c.id === recordClassId)?.name}）` : '（全部班级）'}，导出为 CSV 文件。</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 mt-2">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label>开始日期</Label>
+                      <Input type="date" value={exportDateFrom} onChange={(e) => setExportDateFrom(e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>结束日期</Label>
+                      <Input type="date" value={exportDateTo} onChange={(e) => setExportDateTo(e.target.value)} />
+                    </div>
+                  </div>
+                  <Button className="w-full" onClick={handleExportRecords} disabled={exporting}>
+                    <Download className="w-4 h-4 mr-2" />{exporting ? '导出中...' : '导出 CSV'}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           {/* 教师管理 */}
