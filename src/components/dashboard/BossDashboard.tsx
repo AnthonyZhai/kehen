@@ -13,7 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { RefreshCw, Download, AlertTriangle, ChevronLeft, ChevronRight, Search, Users, Clock, Plus, GraduationCap, UserPlus, Pencil, Upload, User, FileText, Layout, Trash2, CalendarRange } from 'lucide-react';
+import { RefreshCw, Download, AlertTriangle, ChevronLeft, ChevronRight, Search, Users, Clock, Plus, GraduationCap, UserPlus, Pencil, Upload, User, FileText, Layout, Trash2, CalendarRange, MinusCircle } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import WebsiteContentManager from './WebsiteContentManager';
 import { toast } from 'sonner';
@@ -117,6 +117,15 @@ export default function BossDashboard() {
   // 续费历史弹窗状态
   const [renewalHistoryOpen, setRenewalHistoryOpen] = useState(false);
   const [renewalHistoryStudent, setRenewalHistoryStudent] = useState<Student | null>(null);
+
+  // 手动扣课时状态
+  const [manualDeductOpen, setManualDeductOpen] = useState(false);
+  const [manualDeductForm, setManualDeductForm] = useState({
+    studentId: '',
+    hoursToDeduct: '',
+    deductDate: new Date().toISOString().slice(0, 16),
+    notes: '',
+  });
 
   const [studentFilters, setStudentFilters] = useState({
     name: '',
@@ -848,6 +857,40 @@ export default function BossDashboard() {
     setRenewalHistoryOpen(true);
   };
 
+  // 手动扣课时
+  const handleManualDeduct = async () => {
+    if (!manualDeductForm.studentId) { toast.error('请选择学生'); return; }
+    const hours = parseFloat(manualDeductForm.hoursToDeduct);
+    if (isNaN(hours) || hours <= 0) { toast.error('请输入有效的课时数'); return; }
+    if (!manualDeductForm.notes.trim()) { toast.error('备注为必填项，请说明扣课原因'); return; }
+    if (!manualDeductForm.deductDate) { toast.error('请选择扣课日期'); return; }
+
+    setSubmitting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('未登录');
+
+      const { error } = await supabase.from('class_records').insert({
+        student_id: manualDeductForm.studentId,
+        teacher_id: user.id,
+        class_date: new Date(manualDeductForm.deductDate).toISOString(),
+        hours_consumed: hours,
+        notes: manualDeductForm.notes.trim(),
+        status: 'manual_deduct',
+      });
+      if (error) throw error;
+
+      const student = allStudents.find(s => s.id === manualDeductForm.studentId);
+      toast.success(`已手动扣除「${student?.name}」${hours} 课时`);
+      setManualDeductOpen(false);
+      setManualDeductForm({ studentId: '', hoursToDeduct: '', deductDate: new Date().toISOString().slice(0, 16), notes: '' });
+      queryClient.invalidateQueries({ queryKey: ['all-records'] });
+      queryClient.invalidateQueries({ queryKey: ['all-students'] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '操作失败');
+    } finally { setSubmitting(false); }
+  };
+
   // 续费
   const openRenewal = (student: Student) => {
     setRenewalStudent(student);
@@ -1382,7 +1425,18 @@ export default function BossDashboard() {
               <CardHeader className="pb-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <CardTitle className="text-base sm:text-lg">签到记录</CardTitle>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs sm:text-sm border-orange-300 text-orange-700 hover:bg-orange-50"
+                      onClick={() => {
+                        setManualDeductForm({ studentId: '', hoursToDeduct: '', deductDate: new Date().toISOString().slice(0, 16), notes: '' });
+                        setManualDeductOpen(true);
+                      }}
+                    >
+                      <MinusCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />手动扣课时
+                    </Button>
                     <Button variant="outline" size="sm" onClick={() => setExportOpen(true)} className="text-xs sm:text-sm">
                       <CalendarRange className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />导出时段
                     </Button>
@@ -1454,12 +1508,31 @@ export default function BossDashboard() {
                                   }}
                                 />
                               </TableCell>
-                              <TableCell className="font-medium">{r.students.name}</TableCell>
+                              <TableCell className="font-medium">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {r.students.name}
+                                  {(r as any).status === 'manual_deduct' && (
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-orange-400 text-orange-600 bg-orange-50 shrink-0">手动扣</Badge>
+                                  )}
+                                </div>
+                              </TableCell>
                               <TableCell>{r.students.class_name || '-'}</TableCell>
                               <TableCell>{format(new Date(r.class_date), 'MM/dd HH:mm', { locale: zhCN })}</TableCell>
-                              <TableCell>{r.hours_consumed}</TableCell>
+                              <TableCell>
+                                <span className={(r as any).status === 'manual_deduct' ? 'text-orange-600 font-medium' : ''}>
+                                  {r.hours_consumed}
+                                </span>
+                              </TableCell>
                               <TableCell>{r.profiles.full_name}</TableCell>
-                              <TableCell>{r.photo_url ? <a href={r.photo_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-sm">查看</a> : '-'}</TableCell>
+                              <TableCell className="max-w-[160px]">
+                                {(r as any).status === 'manual_deduct' && (r as any).notes ? (
+                                  <span className="text-xs text-orange-600 block truncate" title={(r as any).notes}>
+                                    📝 {(r as any).notes}
+                                  </span>
+                                ) : r.photo_url ? (
+                                  <a href={r.photo_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-sm">查看</a>
+                                ) : '-'}
+                              </TableCell>
                               <TableCell>
                                 <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteRecord(r)}>
                                   <Trash2 className="w-4 h-4" />
@@ -1503,6 +1576,116 @@ export default function BossDashboard() {
                   <Button className="w-full" onClick={handleExportRecords} disabled={exporting}>
                     <Download className="w-4 h-4 mr-2" />{exporting ? '导出中...' : '导出 CSV'}
                   </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* 手动扣课时 Dialog */}
+            <Dialog open={manualDeductOpen} onOpenChange={setManualDeductOpen}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <MinusCircle className="w-5 h-5 text-orange-500" />
+                    手动扣除课时
+                  </DialogTitle>
+                  <DialogDescription>
+                    适用于课程转换差价调整（如从旧课程转入新课程时的汇率换算）。操作后课时将立即扣除且会保留在签到记录中，请务必填写备注说明原因。
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 mt-2">
+                  <div className="space-y-2">
+                    <Label>选择学生 <span className="text-destructive">*</span></Label>
+                    <Select
+                      value={manualDeductForm.studentId || 'none'}
+                      onValueChange={(v) => setManualDeductForm({ ...manualDeductForm, studentId: v === 'none' ? '' : v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="请选择学生" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">请选择学生</SelectItem>
+                        {[...allStudents]
+                          .filter(s => s.status !== 'inactive')
+                          .sort((a, b) => a.name.localeCompare(b.name))
+                          .map(s => (
+                            <SelectItem key={s.id} value={s.id}>
+                              <div className="flex items-center justify-between gap-4 w-full">
+                                <span>{s.name}</span>
+                                <span className="text-xs text-muted-foreground">剩余 {s.remaining_hours} 课时</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    {manualDeductForm.studentId && (() => {
+                      const s = allStudents.find(s => s.id === manualDeductForm.studentId);
+                      return s ? (
+                        <p className="text-xs text-muted-foreground">当前剩余课时：<span className="font-medium text-foreground">{s.remaining_hours}</span> 课时</p>
+                      ) : null;
+                    })()}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>扣除课时数 <span className="text-destructive">*</span></Label>
+                      <Input
+                        type="number"
+                        min="0.5"
+                        step="0.5"
+                        placeholder="如：1.5"
+                        value={manualDeductForm.hoursToDeduct}
+                        onChange={(e) => setManualDeductForm({ ...manualDeductForm, hoursToDeduct: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>扣除日期时间 <span className="text-destructive">*</span></Label>
+                      <Input
+                        type="datetime-local"
+                        value={manualDeductForm.deductDate}
+                        onChange={(e) => setManualDeductForm({ ...manualDeductForm, deductDate: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>备注原因 <span className="text-destructive">*</span></Label>
+                    <textarea
+                      className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
+                      placeholder="例：从Scratch转Python课程，原1.5课时/节→新2课时/节，本次转换差价共扣除X课时"
+                      value={manualDeductForm.notes}
+                      onChange={(e) => setManualDeductForm({ ...manualDeductForm, notes: e.target.value })}
+                    />
+                    <p className="text-xs text-muted-foreground">备注将显示在签到记录列表中，便于后续审计追踪。</p>
+                  </div>
+
+                  {manualDeductForm.studentId && manualDeductForm.hoursToDeduct && (() => {
+                    const s = allStudents.find(s => s.id === manualDeductForm.studentId);
+                    const deduct = parseFloat(manualDeductForm.hoursToDeduct);
+                    if (!s || isNaN(deduct)) return null;
+                    const after = s.remaining_hours - deduct;
+                    return (
+                      <div className={`rounded-lg border px-4 py-3 text-sm ${
+                        after < 0 ? 'border-destructive/50 bg-destructive/5 text-destructive' : 'border-orange-200 bg-orange-50 text-orange-800'
+                      }`}>
+                        <p className="font-medium">预览：扣除后剩余 <span className="font-bold">{after.toFixed(1)}</span> 课时</p>
+                        {after < 0 && <p className="text-xs mt-1">⚠️ 注意：扣除后课时将为负数，请确认操作</p>}
+                      </div>
+                    );
+                  })()}
+
+                  <div className="flex gap-2 pt-1">
+                    <Button variant="outline" className="flex-1" onClick={() => setManualDeductOpen(false)} disabled={submitting}>
+                      取消
+                    </Button>
+                    <Button
+                      className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
+                      onClick={handleManualDeduct}
+                      disabled={submitting}
+                    >
+                      <MinusCircle className="w-4 h-4 mr-2" />
+                      {submitting ? '扣除中...' : '确认扣除'}
+                    </Button>
+                  </div>
                 </div>
               </DialogContent>
             </Dialog>
