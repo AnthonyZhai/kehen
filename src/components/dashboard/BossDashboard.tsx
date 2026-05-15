@@ -317,7 +317,7 @@ export default function BossDashboard() {
   const totalRecords = recordsData?.total || 0;
   const totalRecordPages = Math.ceil(totalRecords / PAGE_SIZE);
 
-  const lowHourStudents = useMemo(() => allStudents.filter(s => s.remaining_hours <= s.alert_threshold), [allStudents]);
+  const lowHourStudents = useMemo(() => allStudents.filter(s => s.status === 'active' && s.remaining_hours <= s.alert_threshold).sort((a, b) => a.remaining_hours - b.remaining_hours), [allStudents]);
   const classNames = useMemo(() => [...new Set(allStudents.map(s => s.class_name).filter(Boolean))], [allStudents]);
 
   // 查询某学生的续费记录
