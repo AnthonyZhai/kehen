@@ -120,6 +120,7 @@ export default function BossDashboard() {
 
   // 手动扣课时状态
   const [manualDeductOpen, setManualDeductOpen] = useState(false);
+  const [manualDeductSearch, setManualDeductSearch] = useState('');
   const [manualDeductForm, setManualDeductForm] = useState({
     studentId: '',
     hoursToDeduct: '',
@@ -1449,6 +1450,7 @@ export default function BossDashboard() {
                       className="text-xs sm:text-sm border-orange-300 text-orange-700 hover:bg-orange-50"
                       onClick={() => {
                         setManualDeductForm({ studentId: '', hoursToDeduct: '', deductDate: new Date().toISOString().slice(0, 16), notes: '' });
+                        setManualDeductSearch('');
                         setManualDeductOpen(true);
                       }}
                     >
@@ -1657,19 +1659,29 @@ export default function BossDashboard() {
                 <div className="space-y-4 mt-2">
                   <div className="space-y-2">
                     <Label>选择学生 <span className="text-destructive">*</span></Label>
-                    <Select
-                      value={manualDeductForm.studentId || 'none'}
-                      onValueChange={(v) => setManualDeductForm({ ...manualDeductForm, studentId: v === 'none' ? '' : v })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="请选择学生" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">请选择学生</SelectItem>
-                        {[...allStudents]
-                          .filter(s => s.status !== 'inactive')
-                          .sort((a, b) => a.name.localeCompare(b.name))
-                          .map(s => (
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                          placeholder="搜索学生姓名..." 
+                          className="pl-8" 
+                          value={manualDeductSearch}
+                          onChange={(e) => setManualDeductSearch(e.target.value)}
+                        />
+                      </div>
+                      <Select
+                        value={manualDeductForm.studentId || 'none'}
+                        onValueChange={(v) => setManualDeductForm({ ...manualDeductForm, studentId: v === 'none' ? '' : v })}
+                      >
+                        <SelectTrigger className="flex-[2]">
+                          <SelectValue placeholder="请选择学生" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">请选择学生</SelectItem>
+                          {[...allStudents]
+                            .filter(s => s.status !== 'inactive' && (!manualDeductSearch || s.name.toLowerCase().includes(manualDeductSearch.toLowerCase())))
+                            .sort((a, b) => a.name.localeCompare(b.name))
+                            .map(s => (
                             <SelectItem key={s.id} value={s.id}>
                               <div className="flex items-center justify-between gap-4 w-full">
                                 <span>{s.name}</span>
