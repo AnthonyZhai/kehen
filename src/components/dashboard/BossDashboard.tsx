@@ -1474,9 +1474,25 @@ export default function BossDashboard() {
                     <SelectTrigger className="w-full sm:w-[160px] text-xs sm:text-sm"><SelectValue placeholder="按班级筛选" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">全部班级</SelectItem>
-                      {[...allClasses].sort((a, b) => a.name.localeCompare(b.name)).map(c => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
+                      {[...allClasses]
+                        .sort((a, b) => {
+                          const teacherA = a.profiles?.full_name || '';
+                          const teacherB = b.profiles?.full_name || '';
+                          if (teacherA !== teacherB) return teacherA.localeCompare(teacherB);
+                          return a.name.localeCompare(b.name);
+                        })
+                        .map(c => (
+                          <SelectItem key={c.id} value={c.id} className="whitespace-nowrap">
+                            <div className="flex items-center gap-2 whitespace-nowrap">
+                              {c.profiles?.full_name && (
+                                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-[10px] font-medium text-primary">
+                                  {c.profiles.full_name[0]}
+                                </span>
+                              )}
+                              <span className="truncate">{c.name}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>
