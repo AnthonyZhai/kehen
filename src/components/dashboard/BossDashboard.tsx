@@ -1689,8 +1689,9 @@ export default function BossDashboard() {
                               </div>
                             </SelectItem>
                           ))}
-                      </SelectContent>
-                    </Select>
+                        </SelectContent>
+                      </Select>
+                    </div>
                     {manualDeductForm.studentId && (() => {
                       const s = allStudents.find(s => s.id === manualDeductForm.studentId);
                       return s ? (
