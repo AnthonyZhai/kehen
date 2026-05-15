@@ -1477,6 +1477,35 @@ export default function BossDashboard() {
                   </div>
                 )}
 
+                {/* 查询结果汇总 */}
+                {!recordsLoading && (
+                  <div className="flex items-center justify-between px-1 mb-2">
+                    <p className="text-sm text-muted-foreground">
+                      {(recordSearch || recordClassId) ? (
+                        <>
+                          搜索到 
+                          <span className="font-semibold text-foreground">{totalRecords}</span>
+                           条记录
+                          {recordSearch && <span className="text-xs ml-1">(“{recordSearch}”)</span>}
+                        </>
+                      ) : (
+                        <>
+                          共 <span className="font-semibold text-foreground">{totalRecords}</span> 条签到记录
+                        </>
+                      )}
+                    </p>
+                    {recordSearch && totalRecords > 0 && (() => {
+                      const manualCount = records.filter(r => (r as any).status === 'manual_deduct').length;
+                      const normalCount = totalRecords - manualCount;
+                      return manualCount > 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                          常规签到 <span className="font-medium text-foreground">{normalCount}</span> 节 · 手动扣 <span className="font-medium text-orange-600">{manualCount}</span> 条
+                        </p>
+                      ) : null;
+                    })()}
+                  </div>
+                )}
+
                 <div className="rounded-lg border">
                   <Table>
                     <TableHeader>
