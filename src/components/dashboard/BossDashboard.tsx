@@ -407,14 +407,13 @@ export default function BossDashboard() {
     if (!editStudent || !editForm.name) { toast.error('请填写学生姓名'); return; }
     setSubmitting(true);
     try {
-      // 注意：remaining_hours 在手动编辑时可直接设置（如初始化数据校正、课程转换调整等场景）
+      // 注意：remaining_hours 不在此处更新，由数据库触发器（上课签到）和续费功能自动维护
       const updateData: Record<string, any> = {
         name: editForm.name,
         class_name: editForm.classId ? editForm.className : null,
         class_id: editForm.classId || null,
         subject: editForm.subject || null,
         total_hours: parseFloat(editForm.totalHours) || 0,
-        remaining_hours: parseFloat(editForm.remainingHours) || 0,
         alert_threshold: parseInt(editForm.alertThreshold) || 0,
         parent_id: editForm.parentId || null,
         photo_url: editForm.photoUrl || null,
@@ -1339,13 +1338,10 @@ export default function BossDashboard() {
                     <div className="space-y-2"><Label>总课时</Label><Input type="number" value={editForm.totalHours} onChange={(e) => setEditForm({ ...editForm, totalHours: e.target.value })} /></div>
                     <div className="space-y-2">
                       <Label>剩余课时</Label>
-                      <Input
-                        type="number"
-                        step="0.5"
-                        value={editForm.remainingHours}
-                        onChange={(e) => setEditForm({ ...editForm, remainingHours: e.target.value })}
-                      />
-                      <p className="text-xs text-muted-foreground">可直接修改，如需校正数据</p>
+                      <div className="flex items-center h-10 rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground select-none">
+                        {editForm.remainingHours}
+                      </div>
+                      <p className="text-xs text-muted-foreground">由签到触发器自动维护，续费请使用「续费」功能</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
