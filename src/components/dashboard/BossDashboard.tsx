@@ -1352,7 +1352,7 @@ export default function BossDashboard() {
                     <div className="space-y-2"><Label>所学内容</Label><Input placeholder="如：Python编程" value={editForm.subject} onChange={(e) => setEditForm({ ...editForm, subject: e.target.value })} /></div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label>总课时</Label><Input type="number" value={editForm.totalHours} onChange={(e) => setEditForm({ ...editForm, totalHours: e.target.value })} /><p className="text-xs text-muted-foreground">仅做统计用途，无逻辑关联</p></div>
+                    <div className="space-y-2"><Label>总课时</Label><div className="flex items-center h-10 rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground select-none">{editForm.totalHours}</div><p className="text-xs text-muted-foreground">将顼通过「续费」功能修改</p></div>
                     <div className="space-y-2">
                       <Label>剩余课时</Label>
                       <div className="flex items-center h-10 rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground select-none">
