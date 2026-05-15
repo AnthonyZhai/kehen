@@ -947,6 +947,23 @@ export default function BossDashboard() {
   return (
     <DashboardLayout title="课时管理">
       <div className="space-y-4 sm:space-y-6">
+        {/* 操作提示卡片 */}
+        <div className="rounded-xl border border-blue-100 bg-blue-50/60 px-5 py-4 text-sm">
+          <p className="font-semibold text-blue-800 mb-3">💡 常用操作指引</p>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="rounded-lg bg-white border border-blue-100 px-4 py-3 space-y-1.5">
+              <p className="font-medium text-blue-700">💰 续费 / 增加课时</p>
+              <p className="text-xs text-muted-foreground">学生续费或初始化课时时使用。</p>
+              <p className="text-xs text-blue-800"><span className="font-medium">步骤：</span>「课时统计」 Tab → 找到学生 → 点击「<span className="font-semibold">续费</span>」按钮</p>
+            </div>
+            <div className="rounded-lg bg-white border border-orange-100 px-4 py-3 space-y-1.5">
+              <p className="font-medium text-orange-700">🔄 课程转换额外扣课时</p>
+              <p className="text-xs text-muted-foreground">旧课程转入新课程存在汇率差异时使用。</p>
+              <p className="text-xs text-orange-800"><span className="font-medium">步骤：</span>「签到记录」 Tab → 点击「<span className="font-semibold">手动扣课时</span>」 → 选学生 / 填扣除课时数 / 必填备注</p>
+            </div>
+          </div>
+        </div>
+
         {lowHourStudents.length > 0 && (
           <Alert variant="destructive" className="bg-orange-50 border-orange-200">
             <AlertTriangle className="h-4 w-4 text-orange-600" />
