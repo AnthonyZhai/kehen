@@ -13,7 +13,9 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { RefreshCw, Download, AlertTriangle, ChevronLeft, ChevronRight, Search, Users, Clock, Plus, GraduationCap, UserPlus, Pencil, Upload, User, FileText, Layout, Trash2, CalendarRange, MinusCircle } from 'lucide-react';
+import { RefreshCw, Download, AlertTriangle, ChevronLeft, ChevronRight, Search, Users, Clock, Plus, GraduationCap, UserPlus, Pencil, Upload, User, FileText, Layout, Trash2, CalendarRange, MinusCircle, Database, HardDrive, FileUp } from 'lucide-react';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 import { Checkbox } from '@/components/ui/checkbox';
 import WebsiteContentManager from './WebsiteContentManager';
 import { toast } from 'sonner';
@@ -95,6 +97,13 @@ export default function BossDashboard() {
   const [exporting, setExporting] = useState(false);
   const [studentMgmtPage, setStudentMgmtPage] = useState(1);
   const [refreshing, setRefreshing] = useState(false);
+
+  // 全量备份与恢复相关状态
+  const [backupOpen, setBackupOpen] = useState(false);
+  const [backupExporting, setBackupExporting] = useState(false);
+  const [backupImporting, setBackupImporting] = useState(false);
+  const [backupProgress, setBackupProgress] = useState(0);
+  const backupInputRef = useRef<HTMLInputElement>(null);
   const [addStudentOpen, setAddStudentOpen] = useState(false);
   const [editStudentOpen, setEditStudentOpen] = useState(false);
   const [addTeacherOpen, setAddTeacherOpen] = useState(false);
@@ -704,6 +713,116 @@ export default function BossDashboard() {
     }
   };
 
+  // 全量备份导出
+  const handleBackupExport = async () => {
+    setBackupExporting(true);
+    setBackupProgress(0);
+    try {
+      setBackupProgress(10);
+      const { data, error } = await supabase.functions.invoke('backup-export', { body: {} });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setBackupProgress(50);
+      const zip = new JSZip();
+      const backupData = data.data;
+
+      // 遍历每个表的数据，写入对应的 JSON 文件
+      for (const [tableName, rows] of Object.entries(backupData)) {
+        if (Array.isArray(rows)) {
+          zip.file(`${tableName}.json`, JSON.stringify(rows, null, 2));
+        }
+      }
+
+      // 添加一个元数据文件
+      zip.file('backup_meta.json', JSON.stringify({
+        exported_at: data.exported_at,
+        version: '1.0',
+        tables: Object.keys(backupData).filter(k => Array.isArray(backupData[k]) && backupData[k].length > 0)
+      }, null, 2));
+
+      setBackupProgress(80);
+      const content = await zip.generateAsync({ type: 'blob' });
+      setBackupProgress(90);
+
+      saveAs(content, `enter_backup_${format(new Date(), 'yyyyMMdd_HHmmss')}.zip`);
+      setBackupProgress(100);
+
+      toast.success('全量备份导出成功');
+      setBackupOpen(false);
+    } catch (error) {
+      console.error('Backup export failed:', error);
+      toast.error(error instanceof Error ? error.message : '备份导出失败');
+    } finally {
+      setBackupExporting(false);
+      setBackupProgress(0);
+    }
+  };
+
+  // 全量备份导入
+  const handleBackupImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!window.confirm('导入备份将覆盖所有现有数据（包括学生、班级、签到记录等），是否继续？')) {
+      if (backupInputRef.current) backupInputRef.current.value = '';
+      return;
+    }
+
+    setBackupImporting(true);
+    setBackupProgress(0);
+    try {
+      setBackupProgress(10);
+      const arrayBuffer = await file.arrayBuffer();
+      const zip = await JSZip.loadAsync(arrayBuffer);
+
+      setBackupProgress(20);
+      const backupData: Record<string, any[]> = {};
+
+      // 读取所有 JSON 文件
+      const fileNames = Object.keys(zip.files).filter(n => n.endsWith('.json') && n !== 'backup_meta.json');
+      for (const fileName of fileNames) {
+        const tableName = fileName.replace('.json', '');
+        const content = await zip.files[fileName].async('string');
+        try {
+          const data = JSON.parse(content);
+          if (Array.isArray(data)) {
+            backupData[tableName] = data;
+          }
+        } catch (parseErr) {
+          console.error(`Failed to parse ${fileName}:`, parseErr);
+        }
+      }
+
+      if (Object.keys(backupData).length === 0) {
+        throw new Error('备份文件中未找到有效的数据表');
+      }
+
+      setBackupProgress(40);
+      const { data, error } = await supabase.functions.invoke('backup-import', {
+        body: { backup_data: backupData }
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setBackupProgress(90);
+
+      // 刷新所有数据
+      await queryClient.invalidateQueries();
+
+      setBackupProgress(100);
+      toast.success('全量备份导入成功');
+      setBackupOpen(false);
+    } catch (error) {
+      console.error('Backup import failed:', error);
+      toast.error(error instanceof Error ? error.message : '备份导入失败');
+    } finally {
+      setBackupImporting(false);
+      setBackupProgress(0);
+      if (backupInputRef.current) backupInputRef.current.value = '';
+    }
+  };
+
   // 删除签到记录（DB 触发器会自动把课时加回去）
   const handleDeleteRecord = async (record: ClassRecord) => {
     if (!window.confirm(`确定要删除「${record.students.name}」在 ${format(new Date(record.class_date), 'MM/dd HH:mm')} 的签到记录（${record.hours_consumed} 课时）？\n删除后该课时将自动归还。`)) return;
@@ -992,6 +1111,7 @@ export default function BossDashboard() {
               <TabsTrigger value="classes" className="gap-2 text-sm sm:text-base px-3 py-2 flex-grow sm:flex-grow-0"><GraduationCap className="w-4 h-4" />班级<span className="hidden sm:inline">管理</span></TabsTrigger>
               <TabsTrigger value="trials" className="gap-2 text-sm sm:text-base px-3 py-2 flex-grow sm:flex-grow-0"><FileText className="w-4 h-4" />试听<span className="hidden sm:inline">申请</span></TabsTrigger>
               <TabsTrigger value="website-content" className="gap-2 text-sm sm:text-base px-3 py-2 flex-grow sm:flex-grow-0"><Layout className="w-4 h-4" />官网<span className="hidden sm:inline">内容</span></TabsTrigger>
+              <TabsTrigger value="backup" className="gap-2 text-sm sm:text-base px-3 py-2 flex-grow sm:flex-grow-0"><Database className="w-4 h-4" />数据<span className="hidden sm:inline">管理</span></TabsTrigger>
             </TabsList>
           </div>
 
@@ -1764,6 +1884,119 @@ export default function BossDashboard() {
                 </div>
               </DialogContent>
             </Dialog>
+          </TabsContent>
+
+          {/* 数据管理 - 全量备份与恢复 */}
+          <TabsContent value="backup">
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle>全量数据备份与恢复</CardTitle>
+                  <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing}>
+                    <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />刷新
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <Alert variant="default" className="border-blue-200 bg-blue-50">
+                  <HardDrive className="h-4 w-4 text-blue-600" />
+                  <AlertTitle className="text-blue-800 text-sm sm:text-base">数据备份说明</AlertTitle>
+                  <AlertDescription className="text-blue-700 text-xs sm:text-sm space-y-1">
+                    <p>• <strong>导出备份</strong>：将所有数据（学生、班级、签到记录等）导出为一个 ZIP 文件，方便迁移或保存历史数据。</p>
+                    <p>• <strong>导入备份</strong>：上传之前的备份 ZIP 文件，将覆盖所有现有数据，请谨慎操作！</p>
+                    <p className="font-medium text-destructive">⚠️ 导入备份会清空并覆盖当前所有数据，操作前请务必确认！</p>
+                  </AlertDescription>
+                </Alert>
+
+                {/* 进度条 */}
+                {(backupExporting || backupImporting) && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span>{backupExporting ? '正在导出数据...' : '正在导入数据...'}</span>
+                      <span>{backupProgress}%</span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-primary transition-all duration-150"
+                        style={{ width: `${backupProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* 导出卡片 */}
+                  <div className="rounded-lg border p-6 space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 rounded-full bg-blue-100 text-blue-600">
+                        <Download className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-lg">导出数据</h3>
+                        <p className="text-sm text-muted-foreground">将当前所有数据导出为 ZIP 文件</p>
+                      </div>
+                    </div>
+                    <div className="space-y-2 text-sm text-muted-foreground">
+                      <p>导出的数据包含：</p>
+                      <ul className="list-disc list-inside pl-2 space-y-1">
+                        <li>学生信息及课时数据</li>
+                        <li>班级信息</li>
+                        <li>签到记录</li>
+                        <li>续费记录</li>
+                        <li>官网内容（教师、课程、获奖等）</li>
+                      </ul>
+                    </div>
+                    <Button onClick={handleBackupExport} disabled={backupExporting || backupImporting} className="w-full bg-blue-600 hover:bg-blue-700">
+                      {backupExporting ? (
+                        <>导出中...</>
+                      ) : (
+                        <><Download className="w-4 h-4 mr-2" />导出全量备份</>
+                      )}
+                    </Button>
+                  </div>
+
+                  {/* 导入卡片 */}
+                  <div className="rounded-lg border p-6 space-y-4 border-destructive/50">
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 rounded-full bg-red-100 text-red-600">
+                        <Upload className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-lg">导入数据</h3>
+                        <p className="text-sm text-destructive">覆盖所有现有数据，风险较高！</p>
+                      </div>
+                    </div>
+                    <div className="space-y-2 text-sm text-muted-foreground">
+                      <p>导入操作会：</p>
+                      <ul className="list-disc list-inside pl-2 space-y-1">
+                        <li>清空现有的所有数据</li>
+                        <li>从备份文件中恢复数据</li>
+                        <li>覆盖所有表的数据</li>
+                      </ul>
+                    </div>
+                    <input
+                      ref={backupInputRef}
+                      type="file"
+                      accept=".zip"
+                      className="hidden"
+                      onChange={handleBackupImport}
+                    />
+                    <Button
+                      variant="destructive"
+                      onClick={() => backupInputRef.current?.click()}
+                      disabled={backupExporting || backupImporting}
+                      className="w-full"
+                    >
+                      {backupImporting ? (
+                        <>导入中...</>
+                      ) : (
+                        <><Upload className="w-4 h-4 mr-2" />选择备份文件导入</>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* 教师管理 */}
